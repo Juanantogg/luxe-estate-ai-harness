@@ -11,6 +11,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "type-check": "tsc --noEmit",
+    "db:seed": "tsx scripts/seed.ts",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -23,9 +24,13 @@
     ]
   },
   "dependencies": {
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.106.1",
     "next": "16.2.6",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "server-only": "^0.0.1",
+    "zod": "^4.4.3"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -38,6 +43,7 @@
     "@types/node": "^20.19.41",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
+    "dotenv": "^17.4.2",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.2.6",
     "eslint-config-prettier": "10.1.8",
@@ -46,6 +52,7 @@
     "prettier": "3.8.3",
     "prettier-plugin-tailwindcss": "0.7.3",
     "tailwindcss": "^4.3.0",
+    "tsx": "^4.22.3",
     "typescript": "^5.9.3"
   }
 }
