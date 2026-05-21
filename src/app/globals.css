@@ -1,17 +1,81 @@
 @import 'tailwindcss';
 
-/* Tokens placeholder. Se completan en Fase 2 derivando de docs/designs/. */
+/*
+ * Design system tokens — Luxe Estate
+ * Documentación completa: docs/design-system.md
+ *
+ * Naming semántico: los tokens dicen qué hacen, no qué color son.
+ * Los hex literales viven SOLO aquí. Cero hex en JSX.
+ */
+
 @theme {
-  --color-background: #eef6f6;
-  --color-foreground: #19322f;
+  /* ===== Paleta base (4 colores principales) ===== */
+  --color-nordic: #19322f;
+  --color-mosque: #006655;
+  --color-hint-green: #d9ecc8;
+  --color-clear-day: #eef6f6;
+
+  /* ===== Tokens semánticos — superficies ===== */
+  --color-background: #eef6f6; /* clear-day */
+  --color-surface: #ffffff;
+  --color-surface-inverse: #19322f; /* nordic */
+  --color-surface-soft: #d9ecc8; /* hint-green */
+
+  /* ===== Tokens semánticos — texto ===== */
+  --color-on-background: #19322f;
+  --color-on-surface: #19322f;
+  --color-on-surface-inverse: #ffffff;
+  --color-muted: #5c706d;
+
+  /* ===== Tokens semánticos — primary ===== */
   --color-primary: #006655;
+  --color-primary-hover: #005544;
+  --color-primary-soft: rgba(0, 102, 85, 0.1);
   --color-on-primary: #ffffff;
-  --color-accent-soft: #d9ecc8;
-  --color-surface-inverse: #19322f;
+
+  /* ===== Tokens semánticos — bordes ===== */
+  --color-divider: rgba(25, 50, 47, 0.1);
+  --color-divider-soft: rgba(25, 50, 47, 0.05);
+  --color-outline: rgba(25, 50, 47, 0.2);
+
+  /* ===== Tokens de estado ===== */
+  --color-success: #006655; /* mismo mosque */
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --color-info: #19322f; /* mismo nordic */
+
+  /* ===== Neutrales auxiliares (usar solo cuando no aplica semántico) ===== */
+  --color-neutral-50: #f8fafc;
+  --color-neutral-100: #f1f5f9;
+  --color-neutral-200: #e2e8f0;
+  --color-neutral-300: #cbd5e1;
+  --color-neutral-400: #94a3b8;
+
+  /* ===== Tipografía ===== */
   --font-sans: var(--font-inter);
+
+  /* ===== Sombras del sistema ===== */
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  --shadow-soft: 0 4px 20px -2px rgba(25, 50, 47, 0.05);
+  --shadow-soft-hover: 0 10px 25px -5px rgba(25, 50, 47, 0.1);
+  --shadow-dropdown: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+
+  /* ===== Radius del sistema ===== */
+  --radius-sm: 0.25rem;
+  --radius-DEFAULT: 0.5rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
 }
 
+/* Defaults globales */
 body {
   background: var(--color-background);
-  color: var(--color-foreground);
+  color: var(--color-on-background);
+  font-family:
+    var(--font-sans),
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
 }
