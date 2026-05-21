@@ -1,0 +1,27 @@
+# Build output
+.next/
+out/
+build/
+coverage/
+
+# Dependencies
+node_modules/
+pnpm-lock.yaml
+
+# Generated
+next-env.d.ts
+*.tsbuildinfo
+
+# Skills y harness (contenido externo, no reformatear).
+.claude/
+
+# Documentación de contrato del agente — no reformatear, gana el autor.
+CLAUDE.md
+AGENTS.md
+README.md
+
+# Diseños de referencia — no reformatear los HTML originales.
+docs/designs/**/*.html
+
+# Misc
+.DS_Store

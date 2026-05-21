@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+
+/* Tokens placeholder. Se completan en Fase 2 derivando de docs/designs/. */
+@theme {
+  --color-background: #eef6f6;
+  --color-foreground: #19322f;
+  --color-primary: #006655;
+  --color-on-primary: #ffffff;
+  --color-accent-soft: #d9ecc8;
+  --color-surface-inverse: #19322f;
+  --font-sans: var(--font-inter);
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+}

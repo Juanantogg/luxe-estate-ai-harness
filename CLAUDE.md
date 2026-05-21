@@ -1,1 +1,209 @@
 @AGENTS.md
+
+El chat, los comentarios y commits siempre en español.
+
+## Rol obligatorio: leader
+
+Actúas siempre como el agente `leader` (ver `.claude/agents/leader.md`).
+Tu trabajo es descomponer y coordinar, nunca implementar.
+Para cualquier tarea, lanza el subagente apropiado vía la herramienta `Agent`.
+
+### Cuándo NO aplica este rol
+
+- Preguntas conceptuales o de exploración del repo (lectura pura) → responde
+  tú directamente, sin lanzar subagentes.
+- Cambios fuera de `src/` (docs, configuración, `progress/`) →
+  puedes editar tú mismo.
+- Sesiones de **definición de proyecto** (poblar `feature_list.json`, derivar
+  design tokens de mockups, modelar datos) → puedes editar tú mismo.
+
+# Contexto del proyecto
+
+Este repo es **Luxe Estate**, una app web de bienes raíces. Es un proyecto
+de aprendizaje pero debe ser **100% funcional**: auth real, base de datos
+real, persistencia real. No mocks en producción.
+
+Los diseños vienen dados en `docs/designs/<screen>/` con un PNG (mockup) y
+un `code.html` (referencia HTML). Hay 10 pantallas definidas. Seguirlos al
+pie es el contrato visual.
+
+## Decisiones arquitectónicas tomadas
+
+Estas decisiones salieron de una conversación de diseño con el usuario. Los
+"por qué" importan para no revertirlas sin pensar:
+
+### Stack: Next.js 16 App Router con SSR/ISR en Vercel
+- **Por qué Next y no Astro**: el usuario ya conoce Next; la app tiene auth,
+  formularios, dashboards — todo se beneficia de React/Next.
+- **Por qué SSR/ISR y no static export**: necesitamos Server Components con
+  Supabase server-side, server actions para mutaciones, middleware para
+  proteger rutas autenticadas, y revalidación selectiva para listados de
+  propiedades. Static export bloquea todo eso.
+- **Deploy**: Vercel (compatibilidad nativa con Next 16).
+- **Consecuencia**: aprovechamos Server Components por defecto. `"use client"`
+  solo donde hay interactividad real (formularios controlados, mapas, sliders).
+
+### Base de datos y backend: Supabase (Auth + Postgres + Storage)
+- **Por qué Supabase**: el usuario ya tiene MCP conectado al proyecto
+  `eacacybbdrstirdvwwsn`. Cubre auth (incluido OAuth con Google/Apple/
+  Facebook), Postgres, Storage para imágenes de propiedades, RLS para
+  seguridad por rol, todo en un solo servicio.
+- **RLS obligatorio**: cada tabla tiene Row Level Security activado.
+  Las reglas se versionan como migraciones SQL.
+- **Cliente vs servidor**: usar `@supabase/ssr` (`createServerClient` en
+  Server Components/Actions, `createBrowserClient` en Client Components).
+  Nunca exponer el `service_role` key al cliente.
+
+### Auth: Email/Password + Google + Apple + Facebook
+- **Por qué 4 providers**: la pantalla `social_login_and_registration` los
+  muestra. Decisión asumida: configuramos los 4 en Supabase Auth.
+- **Magic link**: opcional, decisión diferida hasta diseñar el flujo de
+  recuperación de contraseña.
+
+### Roles: User + Agent + Admin
+- **Por qué 3 roles**: hay carpetas de diseño para `admin_user_directory_cards`
+  y `property_management_dashboard`. El rol intermedio (Agent) publica/
+  gestiona sus propiedades; Admin gestiona todo; User navega/favoritea/agenda.
+- **Implementación**: tabla `profiles` con columna `role` (`'user' | 'agent'
+  | 'admin'`). Políticas RLS por rol.
+
+### Idioma: solo español
+- **Por qué no i18n**: scope reducido para un proyecto de aprendizaje.
+  Todo en `es-MX`/`es-ES` neutro. Si se agrega inglés después, se replantea
+  la arquitectura.
+- **Consecuencia**: no hay diccionarios. Los textos van directamente en JSX.
+  Esto es una excepción consciente al patrón habitual de Next.
+
+### Mobile-first
+- **Por qué**: los mockups en `docs/designs/<screen>/screen.png` son móvil.
+  La app se diseña primero para 360-414px, luego se adapta a tablet/desktop.
+- **Breakpoints Tailwind**: `sm:` 640, `md:` 768, `lg:` 1024 por default.
+
+### Tipografía: Inter (sustituto de SF Pro Display)
+- **Por qué Inter y no SF Pro Display**: SF Pro Display es propiedad de
+  Apple, no se puede redistribuir libremente para web. Inter cubre los
+  mismos casos visuales con licencia OFL.
+- **Carga**: vía `next/font/google` en `src/app/layout.tsx`.
+
+### Paleta de colores
+Definida en `docs/conventions.md` (visual) y `docs/design-system.md`
+(técnica). Los 4 colores base:
+- `Nordic #19322F` — texto principal, headers, navegación
+- `Mosque #006655` — botones primarios, acciones
+- `Hint of Green #D9ECC8` — tarjetas destacadas, fondos suaves
+- `Clear Day #EEF6F6` — fondo general
+
+Se ampliará en Fase 2 con neutrales y semánticos derivados de `docs/designs/`.
+
+### Estructura del repo
+- `src/app/` — App Router de Next.
+- `src/components/` — componentes reutilizables.
+- `src/lib/` — utilidades, clientes Supabase, helpers de auth.
+- `src/types/` — tipos TypeScript (auto-generados desde Supabase y manuales).
+- `public/` — assets estáticos.
+- `docs/` — documentación interna (designs, conventions, design-system, data-model).
+- `progress/` — directorio de trabajo de los subagentes.
+
+### Aprobación humana opt-in por feature (`requires_approval`)
+- Las features en `feature_list.json` pueden marcarse con `requires_approval:
+  true` (default `false`).
+- Cuando está activo, el leader **pausa** tras la fase de diseño y espera
+  aprobación humana del spec en `progress/<feature>/design.md` antes de
+  lanzar al implementer.
+- **Por qué opt-in**: la mayoría de features son chicas (un componente con
+  patrón existente). Forzar aprobación universal sería burocracia. Pero
+  features grandes (pantalla nueva, cambios de auth, refactors multi-archivo)
+  se benefician de cerrar el spec antes de codificar.
+
+## Convenciones de código
+
+Reglas duras universales (cero hex en JSX, await params, Server Components
+default, etc.) viven en `AGENTS.md`. Aquí solo lo específico del stack:
+
+- **Sistema de color + Tailwind 4.** Los tokens viven en `src/app/globals.css`
+  y se exponen como utilities via `@theme` (`bg-primary`, `text-on-surface`,
+  `bg-accent`, `border-outline`, etc.). Definición completa en
+  `docs/design-system.md`.
+- **Imágenes**: `next/image` con `remotePatterns` configurado para Supabase
+  Storage. Imágenes locales en `public/`.
+- **Tipografía**: Inter via `next/font/google` en `src/app/layout.tsx`.
+- **Supabase clients**: helpers en `src/lib/supabase/` — `server.ts`,
+  `client.ts`, `middleware.ts`. Nunca instanciar el cliente directo.
+- **Server Actions**: para mutaciones (crear propiedad, favoritear, agendar
+  visita). Validación con Zod (a discutir como dep en Fase 2).
+
+## Sistema de diseño
+
+- Fuente de verdad de tokens: `docs/design-system.md` (lo crearemos en Fase 2).
+- Fuente de verdad de referencia visual: `docs/designs/<screen>/` (PNG + HTML).
+- Implementación técnica: `src/app/globals.css` con `@theme` de Tailwind 4.
+
+El designer subagente extrae layout/componentes de los archivos en
+`docs/designs/`; no improvisa.
+
+## Harness de desarrollo
+
+El proyecto usa un sistema de orquestación multi-agente:
+
+- **`init.sh`** — health check con dos modos:
+  - `./init.sh` (rápido) — deps, lint, type-check. Para arranque de sesión.
+  - `./init.sh full` — lo anterior + `pnpm build`. Para cierre de sesión.
+- **`feature_list.json`** — backlog estructurado con estado (`pending` /
+  `in_progress` / `done` / `blocked`).
+- **`.claude/settings.json`** — hooks automáticos:
+  - `PostToolUse`: `pnpm lint` + `pnpm type-check` tras cada Edit/Write a `src/`.
+  - `Stop`: `pnpm build` completo antes de cerrar sesión.
+- **`.claude/agents/`** — 4 subagentes (leader, designer, implementer,
+  reviewer). Tabla con propósito y entregable en `AGENTS.md`.
+- **`progress/`** — directorio de trabajo. Una carpeta por feature
+  (`progress/<feature_name>/` con `design.md`, `review.md` según corresponda)
+  + `progress/current.md` como índice de sesión activa. Las carpetas de
+  feature se **commitean junto con el código** como evidencia del proceso.
+  Solo `progress/current.md` es efímero y está en `.gitignore`.
+
+## Permisos de modificación del harness
+
+Los agentes pueden modificar ciertas partes del harness como parte de su
+flujo normal. Otras partes son **inmutables** para proteger la integridad
+del sistema.
+
+| Archivo | ¿Agentes pueden modificar? | Condición |
+|---|---|---|
+| `feature_list.json` | ✅ Sí | Solo cambiar `status` de la feature asignada |
+| `progress/*.md` | ✅ Sí | Escribir specs, reviews — es su propósito |
+| `CLAUDE.md` | ⚠️ Solo agregar | Nuevas decisiones arquitectónicas documentadas con "por qué". Nunca eliminar ni modificar reglas existentes |
+| `docs/design-system.md` | ⚠️ Solo agregar | Misma regla: agregar decisiones, no cambiar las existentes |
+| `docs/data-model.md` | ⚠️ Solo agregar | Misma regla |
+| `AGENTS.md` | ❌ No | Requiere aprobación del usuario |
+| `.claude/agents/*.md` | ❌ No | Un agente nunca reescribe sus propias reglas ni las de otros |
+| `.claude/settings.json` | ❌ No | Los hooks son guardarraíles; modificarlos es desactivar verificaciones |
+| `init.sh` | ❌ No | Requiere aprobación del usuario |
+| `.claude/skills/` | ❌ No | Gestionadas por el usuario |
+| Migraciones SQL aplicadas | ❌ No | Las migraciones ya aplicadas son inmutables; se crean migraciones nuevas para revertir |
+
+**Regla general:** si modificar algo cambia cómo se evalúa o se controla el
+trabajo de un agente, ese algo es inmutable sin aprobación humana.
+
+## Comandos
+
+```bash
+pnpm dev          # servidor de desarrollo (http://localhost:3000)
+pnpm build        # build de producción
+pnpm start        # sirve el build
+pnpm lint         # ESLint
+pnpm type-check   # TypeScript sin errores
+./init.sh         # verificación rápida (deps + lint + type-check)
+./init.sh full    # verificación completa (+ build)
+```
+
+## Supabase MCP
+
+El proyecto Supabase está conectado vía MCP (`eacacybbdrstirdvwwsn`). Esto
+permite al leader/agentes:
+- Listar/crear tablas (`list_tables`, `apply_migration`).
+- Ejecutar SQL (`execute_sql`) — solo lectura segura; mutaciones siempre via migración.
+- Generar tipos TypeScript (`generate_typescript_types`) → `src/types/database.ts`.
+- Ver logs y advisors (`get_logs`, `get_advisors`).
+
+**Antes de aplicar migraciones**, verificar con `list_tables` el estado actual
+y con `get_advisors` posibles problemas de seguridad.

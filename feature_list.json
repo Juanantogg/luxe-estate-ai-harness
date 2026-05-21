@@ -1,0 +1,19 @@
+{
+  "project": "luxu-real-state",
+  "description": "",
+  "rules": {
+    "one_feature_at_a_time": true,
+    "require_review_to_close": true,
+    "valid_status": ["pending", "in_progress", "done", "blocked"]
+  },
+  "features": [
+    {
+      "name": "",
+      "title": "",
+      "description": "",
+      "acceptance": [],
+      "status": "pending",
+      "notes": ""
+    }
+  ]
+}
