@@ -54,9 +54,12 @@ Estas decisiones salieron de una conversación de diseño con el usuario. Los
   Server Components/Actions, `createBrowserClient` en Client Components).
   Nunca exponer el `service_role` key al cliente.
 
-### Auth: Email/Password + Google + Apple + Facebook
-- **Por qué 4 providers**: la pantalla `social_login_and_registration` los
-  muestra. Decisión asumida: configuramos los 4 en Supabase Auth.
+### Auth: Email/Password + Google
+- **Por qué 2 providers y no 4**: el mockup `social_login_and_registration`
+  mostraba Google + Apple + Facebook + GitHub. Decisión tomada en Fase 3:
+  Apple requiere developer account de pago y Facebook no aporta valor para
+  el MVP. Solo email/password + Google. El login screen renderiza solo
+  estos dos métodos — sin botones decorativos para Apple/FB.
 - **Magic link**: opcional, decisión diferida hasta diseñar el flujo de
   recuperación de contraseña.
 
