@@ -1,19 +1,316 @@
 {
-  "project": "luxu-real-state",
-  "description": "",
+  "project": "luxe-real-estate",
+  "description": "App web inmobiliaria Luxe Estate. Next 16 App Router + Tailwind 4 + Supabase + Vercel. Mobile-first, español. 10 pantallas derivadas de docs/designs/.",
   "rules": {
     "one_feature_at_a_time": true,
     "require_review_to_close": true,
     "valid_status": ["pending", "in_progress", "done", "blocked"]
   },
+  "blocks": ["0_transversal", "1_user_flow", "2_agent_flow", "3_admin_flow", "4_polish"],
   "features": [
     {
-      "name": "",
-      "title": "",
-      "description": "",
-      "acceptance": [],
+      "name": "ui_primitives",
+      "title": "Primitivas UI reutilizables",
+      "block": "0_transversal",
+      "depends_on": [],
+      "requires_approval": true,
+      "description": "Implementa los componentes base que el resto de pantallas reutiliza: Button (variants primary/secondary/ghost/icon), IconButton, Input (default/focus/error), Chip (default/selected/outline), Avatar (sm/md/lg), Badge (primary/inverse/soft/success/warning), Card (default/featured/inverse), Icon (wrapper de Material Icons + Material Symbols). Sin datos. Storybook NO requerido (no es feature del MVP); se documenta uso en jsdoc de cada componente. Mobile-first.",
+      "acceptance": [
+        "Todos los componentes en src/components/ui/ con un index.ts que los re-exporta",
+        "Cada componente acepta className para overrides y forwarda ref con React.forwardRef cuando aplica",
+        "Cero hex literales: todos los colores via tokens de globals.css",
+        "Estados visuales (hover, focus, active, disabled, loading) cubiertos",
+        "Inter como fuente única, pesos 400/500/600/700",
+        "Iconos: componente <Icon name='favorite_border' /> que abstrae Material Icons",
+        "Página /dev/ui (solo accesible en desarrollo) que renderiza todos los componentes para validación visual"
+      ],
       "status": "pending",
-      "notes": ""
+      "notes": "Esta feature toca toda la app. Antes de implementar, designer escribe spec en progress/ui_primitives/design.md con cada variante y estado."
+    },
+    {
+      "name": "auth_layer",
+      "title": "Capa de autenticación con Supabase",
+      "block": "0_transversal",
+      "depends_on": [],
+      "requires_approval": true,
+      "description": "Server Actions de auth: signInWithPassword, signUpWithPassword, signInWithGoogle (OAuth), signOut, requestPasswordReset. Route handler /auth/callback para OAuth. Helpers de redirección por rol post-login (user → /, agent/broker → /dashboard, admin → /admin). Validación con zod. NO incluye la pantalla de login (esa es feature aparte) — solo la lógica reutilizable.",
+      "acceptance": [
+        "src/lib/auth/actions.ts con las Server Actions tipadas",
+        "src/app/auth/callback/route.ts maneja el callback de OAuth",
+        "Validación con zod en cada Server Action (email format, password min 8 chars)",
+        "Errores devueltos como { error: { code, message } } sin exponer detalles internos",
+        "Helper getRedirectPathForRole(role) en src/lib/auth/redirect.ts",
+        "Post-login: setea cookies vía createServerClient y redirige según rol",
+        "Test manual con curl/seed users que login funciona y middleware reconoce la sesión"
+      ],
+      "status": "pending",
+      "notes": "Decisiones que el designer/spec debe cerrar: ¿el signup mete el usuario directo o pide verificación de email? Por default Supabase requiere confirmar email — decidir si lo desactivamos en development."
+    },
+    {
+      "name": "image_placeholders",
+      "title": "Placeholders de imágenes para seed",
+      "block": "0_transversal",
+      "depends_on": [],
+      "requires_approval": false,
+      "description": "Mientras no hay fotos reales subidas por agentes, las propiedades del seed muestran placeholders. Decisión: usar Unsplash (https://images.unsplash.com/photo-...) con IDs estables que rotamos en el seed. Agregar el dominio a next.config.ts remotePatterns. Insertar 2-3 property_images por propiedad usando URLs externas en `storage_path` (excepción documentada: el campo permite URL absoluta para placeholders; las imágenes reales seguirán el path properties/{id}/{file}).",
+      "acceptance": [
+        "next.config.ts incluye images.unsplash.com y picsum.photos en remotePatterns",
+        "scripts/seed.ts actualizado: inserta 2-3 property_images por property con URLs de Unsplash",
+        "Helper src/lib/images/get-image-url.ts que detecta si storage_path es URL absoluta o relativa y devuelve la URL correcta",
+        "Idempotencia del seed conservada (no duplicar property_images al re-correr)"
+      ],
+      "status": "pending",
+      "notes": "Excepción documentada: storage_path acepta URL absoluta para placeholders. Cuando se implemente upload (feature add_edit_property_form), los nuevos paths serán siempre relativos."
+    },
+    {
+      "name": "app_shell",
+      "title": "App shell: TopNav + layouts segmentados",
+      "block": "0_transversal",
+      "depends_on": ["ui_primitives", "auth_layer"],
+      "requires_approval": true,
+      "description": "TopNav reutilizado por todas las pantallas autenticadas (Logo + links Buy/Rent/Sell/Saved + search button + notif badge + avatar dropdown). Layouts segmentados: (auth) para login/signup, (app) para usuario autenticado, (dashboard) para agent, (admin) para admin. Skip-link de a11y, focus visible, navegación móvil via menú hamburguesa.",
+      "acceptance": [
+        "src/components/nav/TopNav.tsx con Server Component que lee user/profile",
+        "Mobile: nav colapsa a hamburguesa abriendo drawer",
+        "Avatar dropdown: link a /profile, /dashboard si es agent+, /admin si es admin, signOut",
+        "Layouts src/app/(app)/layout.tsx, (dashboard)/layout.tsx, (admin)/layout.tsx con guards de rol",
+        "Notif badge muestra count de notifications.read_at IS NULL para el user actual",
+        "Skip link para a11y, focus visible"
+      ],
+      "status": "pending",
+      "notes": "El admin del mockup tiene navegación lateral diferente al usuario. Designer debe verificar en property_management_dashboard/code.html y admin_user_directory_cards/code.html que la TopNav puede ser compartida o si admin requiere su propio shell."
+    },
+    {
+      "name": "login_screen",
+      "title": "Pantalla de login y registro",
+      "block": "1_user_flow",
+      "depends_on": ["ui_primitives", "auth_layer"],
+      "requires_approval": false,
+      "description": "Pantalla en /login (y /signup) que renderiza la card de auth del mockup social_login_and_registration. Botón Google + formulario email/password. Toggle login/signup en la misma pantalla. NO renderizar botones de Apple/Facebook (decisión Fase 3). Estados loading, error visible al usuario sin exponer detalles. Redirige según rol al éxito.",
+      "acceptance": [
+        "src/app/(auth)/login/page.tsx renderiza la card de social_login_and_registration adaptada",
+        "Solo email/password + Google (sin Apple/FB visibles)",
+        "Errores formularios (email inválido, password corto) inline, no en alerts",
+        "Loading state en el botón submit",
+        "Link 'Sign up' alterna entre login y signup en la misma URL con searchParam ?mode=signup",
+        "Redirige según rol del profile usando getRedirectPathForRole",
+        "Decoración de fondo (blobs verdes blurred) como en el mockup",
+        "Layout responsive: card centrada, max-w-md en móvil/desktop"
+      ],
+      "status": "pending",
+      "notes": "Mockup en docs/designs/social_login_and_registration/. Designer decide si /login y /signup son rutas separadas o la misma con tabs/searchParam."
+    },
+    {
+      "name": "home_discover_screen",
+      "title": "Home / Discover screen",
+      "block": "1_user_flow",
+      "depends_on": ["app_shell", "image_placeholders"],
+      "requires_approval": true,
+      "description": "Home page (/) para usuario autenticado. Tres secciones: (1) hero con título grande, search bar y chips de filtro rápido por property_type, (2) 'Featured Collections' con 2 cards grandes destacadas (is_featured=true), (3) 'New in Market' grid responsivo con properties recientes (published_at < 30 días). PropertyCard component reutilizable (compact + featured variants). Toggle Buy/Rent. Botón 'Load more' (server pagination).",
+      "acceptance": [
+        "src/app/(app)/page.tsx Server Component fetcha properties via createServerClient",
+        "Hero responsive: text-4xl en móvil, text-6xl en lg+",
+        "Search bar funcional (búsqueda full-text usando search_vector). Submit → /search?q=...",
+        "Chips de property_type: All / House / Apartment / Villa / Penthouse + botón Filters (abre modal)",
+        "PropertyCard variants: featured (col-span-1 lg:col-span-1, aspect-[4/3]) y compact (grid sm:2 md:3 lg:4 cols)",
+        "Heart button en cada card: si user logged → toggle favorite via Server Action; optimistic UI",
+        "Tags visibles: FOR SALE / FOR RENT (basado en listing_type), EXCLUSIVE / NEW ARRIVAL (derivado)",
+        "Toggle Buy/Rent en sección 'New in Market': filtra por listing_type",
+        "Empty state si no hay properties: ilustración + CTA",
+        "Pagination via 'Load more' que aumenta limit usando searchParams"
+      ],
+      "status": "pending",
+      "notes": "Mockup en docs/designs/home_discover_screen/. Esta es la primera feature que materializa el sistema visual real; designer debe leer el HTML con detalle."
+    },
+    {
+      "name": "property_details_screen",
+      "title": "Property details screen",
+      "block": "1_user_flow",
+      "depends_on": ["home_discover_screen"],
+      "requires_approval": true,
+      "description": "Página /property/[id] con galería de imágenes (main + thumbnails scrollable), info principal (precio, dirección, beds/baths/area), card del agente con avatar + botones chat/call, sección Features (m²/bed/bath/garage en grid 2x2), descripción 'About this home' con read more, lista de amenities con check_circle, mortgage calculator placeholder (no funcional), mapa placeholder con pin. Botón sticky 'Schedule Visit'.",
+      "acceptance": [
+        "src/app/(app)/property/[id]/page.tsx Server Component, await params",
+        "404 si property.listing_status no es visible para el user (RLS ya lo enforza)",
+        "Galería: imagen main + thumbnails scrollable horizontal con snap-x",
+        "Botones agente: 'Schedule Visit' navega a /property/[id]/schedule, 'Contact Agent' inicia conversation",
+        "Heart button funcional con optimistic UI",
+        "Layout grid: lg:col-span-8 gallery + features + about, lg:col-span-4 sticky sidebar con price card + map",
+        "Amenities: leer de property_amenities, mapear amenity_key a label español (pool → 'Piscina', wifi → 'Wi-Fi', etc.)",
+        "Mortgage calc card: estática con texto 'Calculadora de hipoteca (próximamente)'",
+        "Map placeholder: imagen estática con pin animado (sin Google Maps real en MVP)",
+        "Footer con copyright"
+      ],
+      "status": "pending",
+      "notes": "Mockup en docs/designs/property_details_screen/. Si el user no está logueado y RLS bloquea, redirigir a /login con searchParam next=/property/{id}."
+    },
+    {
+      "name": "search_filters_modal",
+      "title": "Modal de filtros de búsqueda",
+      "block": "1_user_flow",
+      "depends_on": ["home_discover_screen"],
+      "requires_approval": false,
+      "description": "Modal accesible desde home/listings que permite filtrar properties por location (text), price range (dual slider), property_type, bedrooms (counter), bathrooms (counter), amenities (toggle chips). Submit aplica filtros a /search?... con searchParams. Botón 'Clear all filters'. Mobile: bottom-sheet; desktop: modal centrado.",
+      "acceptance": [
+        "Componente reutilizable src/components/search/FiltersModal.tsx (Client Component)",
+        "Mobile: bottom sheet con swipe-to-dismiss; desktop: dialog centrado max-w-2xl",
+        "Slider de precio: dual handle, lee/escribe searchParams ?min_price=&max_price=",
+        "Bedrooms y bathrooms: contadores con +/- en pill (3+ formato)",
+        "Amenities: chips toggleables, colección completa del enum amenity_key",
+        "Submit: actualiza URL con searchParams y cierra modal; la página de listings lee los params en server",
+        "Botón Show N Homes: muestra count en vivo (preview query)",
+        "Botón Clear all filters: resetea searchParams a vacío"
+      ],
+      "status": "pending",
+      "notes": "Mockup en docs/designs/search_filters_screen/. El primary verde del HTML original (#006611) se normaliza a mosque #006655 (decisión Fase 2)."
+    },
+    {
+      "name": "favorites_list_screen",
+      "title": "Lista de propiedades favoritas",
+      "block": "1_user_flow",
+      "depends_on": ["home_discover_screen"],
+      "requires_approval": false,
+      "description": "Página /favorites con los favoritos del user. Grid de PropertyCard idéntico a home pero con 'For Sale/Rent' badge + botón 'Book Visit' inline. Sort dropdown (Date Added / Price asc/desc). Toggle grid/list view. Empty state si no hay favoritos.",
+      "acceptance": [
+        "src/app/(app)/favorites/page.tsx Server Component",
+        "Query: favorites join properties join property_images (main)",
+        "Sort dropdown: searchParam ?sort=date_desc | price_asc | price_desc",
+        "Toggle grid/list: searchParam ?view=grid|list, persiste en la sesión",
+        "Card sólo muestra heart (lleno, mosque) para des-favoritear con optimistic UI",
+        "Badge 'For Sale' (hint-green bg) / 'For Rent' (blue bg)",
+        "Botón 'Book Visit' navega a /property/[id]/schedule",
+        "Empty state con ilustración y CTA 'Explorar propiedades' → /",
+        "Count en el header ('Tienes N propiedades guardadas')"
+      ],
+      "status": "pending",
+      "notes": "Mockup en docs/designs/favorites_list_screen/. Reutiliza PropertyCard pero con variante 'with-cta-button'."
+    },
+    {
+      "name": "schedule_visit_screen",
+      "title": "Agendar visita a propiedad",
+      "block": "1_user_flow",
+      "depends_on": ["property_details_screen"],
+      "requires_approval": true,
+      "description": "Página /property/[id]/schedule. Sidebar con resumen de la property + agente. Main: calendario mensual con días seleccionables (no pasados, no llenos), time slots de 30min (slots ocupados con line-through), textarea opcional para mensaje al agente, botón Confirm Visit. Server Action que crea row en visits y notifica al agente.",
+      "acceptance": [
+        "src/app/(app)/property/[id]/schedule/page.tsx Server Component con sidebar + form",
+        "Calendario: componente Client con state local para fecha seleccionada (navegable por mes con chevrons)",
+        "Time slots: leer visits existentes del agente para esa fecha, marcar como ocupados los que se solapen",
+        "Server Action scheduleVisit: valida con zod (scheduled_at futuro, slot libre), inserta en visits, inserta notification para el agente",
+        "Loading + error states en el botón Confirm",
+        "Tras éxito: toast 'Visita confirmada' + redirige a /profile?tab=visits",
+        "Layout split: md:w-5/12 sidebar + md:w-7/12 form",
+        "Mensaje opcional max 500 chars con contador"
+      ],
+      "status": "pending",
+      "notes": "Mockup en docs/designs/schedule_visit_screen/. requires_approval por lógica de validación de disponibilidad — designer debe definir: ¿permitir agendar el mismo slot a varios users? Default: no. ¿Permitir agendar fuera de horario laboral? Default: 9am-6pm L-V."
+    },
+    {
+      "name": "user_profile_screen",
+      "title": "Pantalla de perfil del usuario",
+      "block": "1_user_flow",
+      "depends_on": ["app_shell", "favorites_list_screen"],
+      "requires_approval": false,
+      "description": "Página /profile con header de perfil (avatar editable, nombre, ciudad, member since) + stats (Saved/Visits/Sold counts) + tabs: 'Propiedades guardadas' (grid de favoritos), 'Visitas programadas' (lista con reschedule/get directions), 'Preferencias y ajustes' (email, toggle notificaciones).",
+      "acceptance": [
+        "src/app/(app)/profile/page.tsx Server Component",
+        "Header con bg hint-green, avatar grande con botón edit (upload a Storage bucket avatars)",
+        "Stats counters: favorites.count, visits.count (futuras y completadas separadas), sold = 0 por ahora",
+        "Tabs implementadas con searchParam ?tab=saved|visits|settings (default saved)",
+        "Tab Saved: reutiliza componente de favorites_list_screen",
+        "Tab Visits: lista de visits con thumbnail + fecha + agente + 2 botones (Reschedule abre schedule_visit_screen con la visit precargada, Get Directions abre Google Maps con la dirección)",
+        "Tab Settings: input email (readonly por ahora), toggle 'Alertas de nuevas propiedades' (placeholder, sin lógica)",
+        "Upload de avatar: Server Action sube a Storage bucket avatars/{user_id}/avatar.jpg y actualiza profile.avatar_url"
+      ],
+      "status": "pending",
+      "notes": "Mockup en docs/designs/user_profile_screen/. El campo 'Sold' en el mockup es para agentes, no users — pero el mockup muestra '1 Sold' para Elena (que es user). Decisión: ocultar el counter Sold si role=user."
+    },
+    {
+      "name": "property_management_dashboard",
+      "title": "Dashboard de gestión de propiedades (agent)",
+      "block": "2_agent_flow",
+      "depends_on": ["app_shell", "ui_primitives"],
+      "requires_approval": true,
+      "description": "Página /dashboard para agent/broker/admin. Header 'My Properties' + botón 'Add New Property'. Stats overview: Total Listings, Active Properties, Pending Sale. Tabla de properties del agent (owner_id = auth.uid()) con columnas: thumbnail+title+address+beds/baths, price+monthly estimate, status badge (Active/Pending/Sold), acciones (edit/delete). Pagination.",
+      "acceptance": [
+        "src/app/(dashboard)/page.tsx Server Component",
+        "Guard de rol: si role no in (agent, broker, admin) → redirect a /",
+        "Stats: count properties por owner_id y listing_status",
+        "Tabla: mobile colapsa a cards stacked, md:+ tabla con 12-col grid",
+        "Status badges: hint-green/Active, orange/Pending, gray/Sold",
+        "Botón Add New Property → /dashboard/properties/new",
+        "Acción Edit → /dashboard/properties/{id}/edit",
+        "Acción Delete: confirmación con dialog + Server Action que setea listing_status=archived (no DELETE físico)",
+        "Pagination: searchParam ?page=N, 10 por página, footer con 'Showing X to Y of Z results'",
+        "Filter button: abre dropdown con filtros (status, listing_type)",
+        "Header con 'LuxeEstate' (normalizado, no 'Haven' del mockup)"
+      ],
+      "status": "pending",
+      "notes": "Mockup en docs/designs/property_management_dashboard/. El mockup dice 'Haven' — normalizar a LuxeEstate (decisión Fase 2)."
+    },
+    {
+      "name": "add_edit_property_form",
+      "title": "Formulario de agregar/editar propiedad",
+      "block": "2_agent_flow",
+      "depends_on": ["property_management_dashboard"],
+      "requires_approval": true,
+      "description": "Páginas /dashboard/properties/new y /dashboard/properties/[id]/edit (mismo componente, modo controlado por presencia de [id]). Form en 3-4 cards: Basic Info (title, price, status, type), Description (textarea + char counter), Gallery (upload multi-file a Storage), Location (address + map placeholder), Details (area, year, beds/baths/parking con contadores +/-, amenities checkboxes). Botones Save Draft + Save Property (sticky en móvil).",
+      "acceptance": [
+        "src/app/(dashboard)/properties/new/page.tsx y .../[id]/edit/page.tsx comparten un PropertyForm Client Component",
+        "Guard de rol: agent/broker/admin",
+        "Edit: pre-rellena con datos actuales; bloquea editar si owner_id != user (admin sí puede)",
+        "Validación con zod: title (3-200), price > 0, address required, area > 0, año entre 1800-2100",
+        "Gallery: drag&drop, max 5MB por imagen, formatos JPG/PNG/WEBP, preview con botón delete por imagen, designar imagen Main (is_main=true). Subida a Storage bucket property-images/{property_id}/{uuid}.{ext}",
+        "Server Action createProperty / updateProperty con transacción: properties + property_amenities + property_images",
+        "Botón Save Draft: listing_status=draft. Save Property: status=active y published_at=now()",
+        "Mobile: barra sticky abajo con Cancel + Save",
+        "Tras éxito: redirect a /dashboard con flash message",
+        "Tipografía: Inter (no Newsreader como mockup), paleta normalizada (decisión Fase 2)"
+      ],
+      "status": "pending",
+      "notes": "Mockup en docs/designs/add_edit_property_form/. requires_approval por: validación compleja, upload a Storage, transacción multi-tabla. Designer escribe Riesgos sobre fallos parciales de upload (qué hacer si una imagen sube pero la transacción de DB falla)."
+    },
+    {
+      "name": "admin_user_directory",
+      "title": "Directorio de usuarios (admin)",
+      "block": "3_admin_flow",
+      "depends_on": ["app_shell", "ui_primitives"],
+      "requires_approval": true,
+      "description": "Página /admin/users solo para role=admin. Header con search por name/email + filtro de role (All/Agents/Brokers/Admins). Tabla de profiles con avatar + name + email + ID, badge de rol, performance (properties count, sales YTD), botón 'Change Role' que abre dropdown con opciones (Admin/Broker/Agent/Viewer + Suspend User). Server Action changeRole con auditoría.",
+      "acceptance": [
+        "src/app/(admin)/users/page.tsx Server Component",
+        "Guard estricto: role=admin (cualquier otro → 404)",
+        "Tabla con search (?q=) y filtro de role (?role=)",
+        "Search: ilike name/email; insensible a mayúsculas",
+        "Performance columns: count properties por owner_id; sales YTD (sum price de properties.listing_status='sold' en el año actual) — para users normales muestra '-'",
+        "Change Role dropdown: 4 opciones + 'Suspend User' (setea is_active=false)",
+        "Server Action changeRole: valida con zod, actualiza profiles.role, inserta notification al user afectado",
+        "Admin no puede cambiar su propio rol (UI gris + check server-side)",
+        "Pagination: 20 por página",
+        "Status indicator: dot verde (online) / amarillo (away) / gris (inactive) — derivar de last_sign_in_at de auth.users (placeholder simple por ahora: si is_active=true → online)"
+      ],
+      "status": "pending",
+      "notes": "Mockup en docs/designs/admin_user_directory_cards/. requires_approval por: toca permisos sensibles. Audit log queda fuera del MVP (documentado en data-model.md)."
+    },
+    {
+      "name": "notifications_dropdown",
+      "title": "Dropdown de notificaciones",
+      "block": "4_polish",
+      "depends_on": ["app_shell"],
+      "requires_approval": false,
+      "description": "Panel que abre desde la badge roja del TopNav. Lista las últimas 10 notifications del user (ordenadas por created_at desc), agrupadas por hoy/esta semana/anteriores. Click en una notification: marca read_at y navega a la ruta relacionada (property_id → /property/[id], visit_id → /profile?tab=visits, conversation_id → /messages/[id]). Botón 'Marcar todas como leídas'.",
+      "acceptance": [
+        "Client Component src/components/notifications/NotificationsDropdown.tsx",
+        "Trigger: el botón de notif badge del TopNav",
+        "Popover con max-h-96 scrollable, max-w-sm",
+        "Item por notification: ícono según type, title, body, time relativo (hace 5 min, ayer)",
+        "Unread: bg-mosque/5 + dot a la izquierda",
+        "Server Action markAsRead(id) / markAllAsRead()",
+        "Empty state: 'No tienes notificaciones'",
+        "Realtime opcional: suscripción a INSERT en notifications via Supabase Realtime (si no se implementa, polling cada 30s)"
+      ],
+      "status": "pending",
+      "notes": "No hay mockup específico para este panel — designer libre dentro del sistema. La badge ya existe en TopNav. Si Realtime suma complejidad, dejarlo para fase 2 con polling simple."
     }
   ]
 }
