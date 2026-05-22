@@ -75,29 +75,95 @@ tarea recibida
 ## Pausa de aprobación humana (features con `requires_approval: true`)
 
 Si la feature en `feature_list.json` tiene `requires_approval: true`, el
-flujo cambia: tras la fase de diseño y **antes** de lanzar al
-implementer, paras y pides aprobación humana.
+flujo cambia: tras la fase de diseño, **tú (leader) revisas el spec contra
+el requerimiento**, escribes tu veredicto y luego paras a pedir aprobación
+humana.
 
 ```
 tarea recibida
   → designer
-  → ⏸ HUMANO aprueba el spec (lee progress/<feature>/design.md)
+  → leader revisa spec vs requerimiento + docs/designs/
+  → ⏸ HUMANO aprueba (lee design.md + veredicto del leader)
   → implementer
   → reviewer
   → commit → done
 ```
 
-Cómo pedir la aprobación:
+### Revisión del leader (antes de pedir aprobación humana)
 
-> "El designer terminó la spec en `progress/<feature>/design.md`. Léela y
-> dime: ¿aprobada para implementar, o necesita cambios?"
+Tras leer `progress/<feature>/design.md`, valida que:
 
-Reglas:
+- ✅ El spec cubre todos los criterios de `acceptance` de la feature en
+  `feature_list.json`.
+- ✅ Respeta el `code.html` y `screen.png` de `docs/designs/<screen>/` si
+  la feature mapea a una pantalla.
+- ✅ Las decisiones de tokens/layout son consistentes con
+  `docs/design-system.md` y `docs/conventions.md`.
+- ✅ No falta info crítica (estados de carga/error, edge cases,
+  responsividad mobile-first, RLS si toca datos).
+- ✅ No introduce dependencias nuevas sin discutirlas.
+
+Veredicto: uno de tres niveles.
+
+| Veredicto | Significado | Siguiente paso |
+|---|---|---|
+| `aprobado-limpio` | Spec sólido, listo para humano | Pedir aprobación humana |
+| `aprobado-con-observaciones` | Funcional pero con notas para el humano | Pedir aprobación humana, mencionando observaciones |
+| `requiere-cambios` | Hay gaps que el designer debe resolver primero | Re-lanzar al designer con la retroalimentación, sin molestar al humano |
+
+### Histórico de veredictos (`progress/<feature>/leader-review.md`)
+
+Escribe cada veredicto **al final** del archivo (append), nunca pises los
+anteriores. Cada entrada es un bloque con esta plantilla:
+
+```markdown
+## Revisión #<N> — <YYYY-MM-DD HH:MM>
+
+**Veredicto:** <aprobado-limpio | aprobado-con-observaciones | requiere-cambios>
+
+**Spec evaluada:** `progress/<feature>/design.md` (commit/hash o "estado actual")
+
+### Validación
+- [ ] Cubre `acceptance` de feature_list.json
+- [ ] Respeta `docs/designs/<screen>/` (si aplica)
+- [ ] Tokens/layout consistentes con design-system
+- [ ] Estados/edge cases cubiertos
+- [ ] Sin dependencias nuevas no discutidas
+
+### Observaciones
+- <punto 1>
+- <punto 2>
+
+### Siguiente paso
+<una línea: pedir aprobación humana | re-lanzar designer con: …>
+```
+
+El histórico es valioso porque deja trazabilidad de las iteraciones del
+spec (qué pidió el humano, qué cambió el designer, cómo evolucionó la
+revisión). Se commitea con la feature.
+
+### Cómo pedir la aprobación humana
+
+Una vez tu veredicto es `aprobado-limpio` o `aprobado-con-observaciones`:
+
+> "El designer terminó la spec en `progress/<feature>/design.md`. Mi
+> revisión está en `progress/<feature>/leader-review.md` con veredicto
+> `<veredicto>`. Léelos y dime: ¿aprobada para implementar, o necesita
+> cambios?"
+
+### Reglas
+
 - ❌ No lances al implementer hasta tener aprobación explícita del humano.
+- ❌ No pidas aprobación humana si tu veredicto es `requiere-cambios` —
+  primero re-lanza al designer.
+- ❌ No sobrescribas entradas previas de `leader-review.md` — siempre
+  append.
 - ✅ Si el humano pide cambios, re-lanza al designer con la
-  retroalimentación. Itera hasta aprobación.
+  retroalimentación. Cuando el designer entregue, haz una nueva revisión
+  (entrada `## Revisión #<N+1>`) e itera hasta aprobación.
 - ✅ La aprobación cuenta para esta sesión; si la feature se retoma en
   otra sesión y el spec sigue válido, no hace falta re-aprobar.
+
 
 Cuándo proponer `requires_approval: true` al humano:
 - Features de pantalla completa nueva.
@@ -168,12 +234,16 @@ implementer → reviewer APPROVED → commit → done
 
 Cada feature en curso vive en su propia carpeta `progress/<feature_name>/`,
 donde el nombre de la carpeta coincide con el `name` en `feature_list.json`.
-Dentro pueden haber hasta 2 archivos según los subagentes que hayan corrido:
+Dentro pueden haber hasta 3 archivos según los subagentes que hayan corrido:
 
-| Archivo | Quién lo escribe |
-|---|---|
-| `progress/<feature>/design.md` | designer |
-| `progress/<feature>/review.md` | reviewer |
+| Archivo | Quién lo escribe | Modo |
+|---|---|---|
+| `progress/<feature>/design.md` | designer | reescribe |
+| `progress/<feature>/leader-review.md` | leader (tú) | append (histórico) |
+| `progress/<feature>/review.md` | reviewer | reescribe |
+
+`leader-review.md` solo aplica a features con `requires_approval: true`.
+Las demás features saltan la revisión del leader.
 
 Casos especiales:
 - `progress/current.md` — índice mínimo de la sesión activa que tú (leader)
