@@ -24,7 +24,7 @@
         "Iconos: componente <Icon name='favorite_border' /> que abstrae Material Icons",
         "Página /dev/ui (solo accesible en desarrollo) que renderiza todos los componentes para validación visual"
       ],
-      "status": "pending",
+      "status": "done",
       "notes": "Esta feature toca toda la app. Antes de implementar, designer escribe spec en progress/ui_primitives/design.md con cada variante y estado."
     },
     {

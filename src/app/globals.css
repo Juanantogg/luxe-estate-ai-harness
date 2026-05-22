@@ -66,6 +66,12 @@
   --radius-lg: 1rem;
   --radius-xl: 1.5rem;
   --radius-2xl: 2rem;
+
+  /* ===== Tokens soft añadidos en feature ui_primitives ===== */
+  --color-warning-soft: rgba(217, 119, 6, 0.12);
+  --color-danger-soft: rgba(220, 38, 38, 0.12);
+  --color-success-soft: rgba(0, 102, 85, 0.12);
+  --color-surface-hover: rgba(25, 50, 47, 0.04);
 }
 
 /* Defaults globales */
