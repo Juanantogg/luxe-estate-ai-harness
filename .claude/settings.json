@@ -17,6 +17,8 @@
       "Write(progress/**)",
       "Write(feature_list.json)",
       "Edit(src/**)",
+      "Edit(scripts/**)",
+      "Edit(supabase/**)",
       "Edit(src/i18n/**)",
       "Edit(progress/**)",
       "Edit(feature_list.json)",

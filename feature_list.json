@@ -33,18 +33,22 @@
       "block": "0_transversal",
       "depends_on": [],
       "requires_approval": true,
-      "description": "Server Actions de auth: signInWithPassword, signUpWithPassword, signInWithGoogle (OAuth), signOut, requestPasswordReset. Route handler /auth/callback para OAuth. Helpers de redirección por rol post-login (user → /, agent/broker → /dashboard, admin → /admin). Validación con zod. NO incluye la pantalla de login (esa es feature aparte) — solo la lógica reutilizable.",
+      "description": "Server Actions de auth: signInWithPassword, signUpWithPassword (con verificación de email obligatoria), signInWithGoogle (OAuth), signOut, requestPasswordReset, updatePassword. Route handlers /auth/callback (OAuth + email confirm) y /auth/reset (landing del token de reset). Helpers de redirección por rol post-login (user → /, agent/broker → /dashboard, admin → /admin). Validación con zod. NO incluye la pantalla de login (esa es feature aparte) — solo la lógica reutilizable.",
+
       "acceptance": [
-        "src/lib/auth/actions.ts con las Server Actions tipadas",
-        "src/app/auth/callback/route.ts maneja el callback de OAuth",
-        "Validación con zod en cada Server Action (email format, password min 8 chars)",
+        "src/lib/auth/actions.ts con las Server Actions tipadas (signIn, signUp, signInWithGoogle, signOut, requestPasswordReset, updatePassword)",
+        "src/app/auth/callback/route.ts maneja el code exchange de OAuth y de confirmación de email",
+        "src/app/auth/reset/route.ts (o page) recibe el token de reset y redirige al formulario de nueva contraseña",
+        "Validación con zod en cada Server Action (email format, password min 8 chars, confirm matches)",
         "Errores devueltos como { error: { code, message } } sin exponer detalles internos",
         "Helper getRedirectPathForRole(role) en src/lib/auth/redirect.ts",
         "Post-login: setea cookies vía createServerClient y redirige según rol",
+        "Signup con verificación obligatoria: tras signUp, redirige a página intermedia (o devuelve flag) que indique 'revisa tu correo'",
+        "middleware.ts raíz que invoca updateSession del proxy",
         "Test manual con curl/seed users que login funciona y middleware reconoce la sesión"
       ],
-      "status": "pending",
-      "notes": "Decisiones que el designer/spec debe cerrar: ¿el signup mete el usuario directo o pide verificación de email? Por default Supabase requiere confirmar email — decidir si lo desactivamos en development."
+      "status": "done",
+      "notes": "Decisiones cerradas (sesión 2026-05-22): (1) verificación de email obligatoria en signup; (2) callback OAuth incluido en esta feature; (3) reset completo: request + update password + route handler para token landing. Reviewer APPROVED 2026-05-22; test manual end-to-end (17 pasos) diferido a cuando login_screen exista."
     },
     {
       "name": "image_placeholders",
