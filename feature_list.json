@@ -63,8 +63,8 @@
         "Helper src/lib/images/get-image-url.ts que detecta si storage_path es URL absoluta o relativa y devuelve la URL correcta",
         "Idempotencia del seed conservada (no duplicar property_images al re-correr)"
       ],
-      "status": "pending",
-      "notes": "Excepción documentada: storage_path acepta URL absoluta para placeholders. Cuando se implemente upload (feature add_edit_property_form), los nuevos paths serán siempre relativos."
+      "status": "done",
+      "notes": "Excepción documentada: storage_path acepta URL absoluta para placeholders. Cuando se implemente upload (feature add_edit_property_form), los nuevos paths serán siempre relativos. Reviewer APPROVED 2026-05-22; 12 properties × 3 imágenes (36 filas), 1 main por property, 0 duplicados tras re-correr seed."
     },
     {
       "name": "app_shell",

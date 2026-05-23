@@ -430,7 +430,31 @@ async function upsertUser(seed: SeedUser): Promise<string> {
   return userId;
 }
 
-async function upsertProperty(seed: SeedProperty, ownerId: string): Promise<string> {
+// Pool de IDs estables de Unsplash para placeholders del seed. Cada property
+// toma 3 fotos consecutivas (con wrap) para que la galería tenga variedad.
+const UNSPLASH_PHOTO_IDS = [
+  'photo-1600596542815-ffad4c1539a9',
+  'photo-1613490493576-7fde63acd811',
+  'photo-1600585154340-be6161a56a0c',
+  'photo-1512917774080-9991f1c4c750',
+  'photo-1564013799919-ab600027ffc6',
+  'photo-1502672260266-1c1ef2d93688',
+  'photo-1600607687939-ce8a6c25118c',
+  'photo-1600566753190-17f0baa2a6c8',
+  'photo-1600585154526-990dced4db0d',
+];
+
+const IMAGES_PER_PROPERTY = 3;
+
+function buildUnsplashUrl(photoId: string): string {
+  return `https://images.unsplash.com/${photoId}?w=1600&q=80&auto=format&fit=crop`;
+}
+
+async function upsertProperty(
+  seed: SeedProperty,
+  ownerId: string,
+  propertyIndex: number,
+): Promise<string> {
   // Idempotencia por (owner, title): si ya existe, lo reusamos.
   const { data: existing, error: existingError } = await supabase
     .from('properties')
@@ -442,6 +466,7 @@ async function upsertProperty(seed: SeedProperty, ownerId: string): Promise<stri
 
   if (existing) {
     console.log(`  → ya existe property "${seed.title}"`);
+    await seedPropertyImages(existing.id, seed.title, propertyIndex);
     return existing.id;
   }
 
@@ -486,7 +511,45 @@ async function upsertProperty(seed: SeedProperty, ownerId: string): Promise<stri
     if (amenError) throw amenError;
   }
 
+  await seedPropertyImages(data.id, seed.title, propertyIndex);
+
   return data.id;
+}
+
+// Los placeholders del seed usan URLs absolutas en `storage_path`; las
+// imágenes reales subidas por agentes serán paths relativos del bucket
+// `property-images` (ver src/lib/images/get-image-url.ts).
+async function seedPropertyImages(
+  propertyId: string,
+  propertyTitle: string,
+  propertyIndex: number,
+): Promise<void> {
+  const { count, error: countError } = await supabase
+    .from('property_images')
+    .select('id', { count: 'exact', head: true })
+    .eq('property_id', propertyId);
+  if (countError) throw countError;
+
+  if ((count ?? 0) >= IMAGES_PER_PROPERTY) {
+    console.log(`    → ya hay ${count} imágenes para "${propertyTitle}"`);
+    return;
+  }
+
+  const offset = propertyIndex * IMAGES_PER_PROPERTY;
+  const rows = Array.from({ length: IMAGES_PER_PROPERTY }, (_, i) => {
+    const photoId = UNSPLASH_PHOTO_IDS[(offset + i) % UNSPLASH_PHOTO_IDS.length];
+    return {
+      property_id: propertyId,
+      storage_path: buildUnsplashUrl(photoId),
+      is_main: i === 0,
+      position: i,
+      alt_text: `${propertyTitle} — foto ${i + 1}`,
+    };
+  });
+
+  const { error: imgError } = await supabase.from('property_images').insert(rows);
+  if (imgError) throw imgError;
+  console.log(`    ✓ ${rows.length} imágenes placeholder para "${propertyTitle}"`);
 }
 
 async function seedFavorites(
@@ -718,13 +781,13 @@ async function main() {
 
   console.log('\n▶ Properties:');
   const propertyIdByTitle = new Map<string, string>();
-  for (const p of PROPERTIES) {
+  for (const [index, p] of PROPERTIES.entries()) {
     const ownerId = userIdByEmail.get(p.ownerEmail);
     if (!ownerId) {
       console.warn(`  ⚠ owner ${p.ownerEmail} no encontrado, salto "${p.title}"`);
       continue;
     }
-    const id = await upsertProperty(p, ownerId);
+    const id = await upsertProperty(p, ownerId, index);
     propertyIdByTitle.set(p.title, id);
   }
 
