@@ -41,3 +41,25 @@ export function formatArea(areaSqm: number | null | undefined): string | null {
   const formatter = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
   return `${formatter.format(areaSqm)} m²`;
 }
+
+/**
+ * Estima el pago mensual de una hipoteca con cuota fija (amortización
+ * francesa). NO es asesoramiento financiero — sólo un placeholder visual
+ * para la `MortgageCard` del detalle de propiedad ("Desde $X/mes con 20%
+ * de enganche").
+ *
+ * Defaults: 30 años, tasa anual 6.5%, enganche 20%.
+ */
+export function estimateMonthlyPayment(
+  price: number,
+  opts: { annualRate?: number; years?: number; downPaymentPct?: number } = {},
+): number {
+  const { annualRate = 0.065, years = 30, downPaymentPct = 0.2 } = opts;
+  const principal = price * (1 - downPaymentPct);
+  const monthlyRate = annualRate / 12;
+  const n = years * 12;
+  if (monthlyRate === 0) return Math.round(principal / n);
+  const factor = Math.pow(1 + monthlyRate, n);
+  const monthly = (principal * monthlyRate * factor) / (factor - 1);
+  return Math.round(monthly);
+}

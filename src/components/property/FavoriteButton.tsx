@@ -9,8 +9,14 @@ import { cn } from '@/lib/utils/cn';
 export interface FavoriteButtonProps {
   propertyId: string;
   initialIsFavorite: boolean;
-  /** Si false, el click redirige a `/login?next=/` sin invocar al server. */
+  /** Si false, el click redirige a `/login?next=...` sin invocar al server. */
   isAuthenticated: boolean;
+  /**
+   * Path destino tras login cuando el visitante es anónimo. Default `/`
+   * para listados; el detalle de propiedad pasa `/property/[id]` para que
+   * el usuario vuelva al mismo lugar tras autenticarse.
+   */
+  redirectNext?: string;
   /** `md` para variant compact, `lg` para variant featured. */
   size?: 'md' | 'lg';
   className?: string;
@@ -26,6 +32,7 @@ export function FavoriteButton({
   propertyId,
   initialIsFavorite,
   isAuthenticated,
+  redirectNext = '/',
   size = 'md',
   className,
 }: FavoriteButtonProps) {
@@ -38,7 +45,7 @@ export function FavoriteButton({
     event.stopPropagation();
 
     if (!isAuthenticated) {
-      router.push('/login?next=/');
+      router.push(`/login?next=${encodeURIComponent(redirectNext)}`);
       return;
     }
 

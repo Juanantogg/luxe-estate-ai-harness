@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
+import type { AmenityKey } from './amenities';
 
 /**
  * Queries server-side de propiedades. Funciones puras (reciben el cliente)
@@ -10,6 +11,8 @@ type SupabaseDb = SupabaseClient<Database>;
 
 export type PropertyType = Database['public']['Enums']['property_type'];
 export type ListingType = Database['public']['Enums']['listing_type'];
+export type ListingStatus = Database['public']['Enums']['listing_status'];
+export type UserRole = Database['public']['Enums']['user_role'];
 
 /**
  * Tipo aplanado que consumen las cards. `main_image` se resuelve haciendo
@@ -203,4 +206,242 @@ export async function getUserFavoriteIds(
     return new Set();
   }
   return new Set((data ?? []).map((row) => row.property_id));
+}
+
+// ============================================================
+// Detalle de propiedad
+// ============================================================
+
+export interface OwnerPublicProfile {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  role: UserRole;
+  city: string | null;
+}
+
+export interface OwnerProfileFull extends OwnerPublicProfile {
+  email: string | null;
+  phone: string | null;
+}
+
+export interface PropertyDetailImage {
+  id: string;
+  storage_path: string;
+  alt_text: string | null;
+  is_main: boolean;
+  position: number;
+}
+
+export interface PropertyForDetail {
+  id: string;
+  title: string;
+  description: string | null;
+  price: number;
+  previous_price: number | null;
+  listing_type: ListingType;
+  listing_status: ListingStatus;
+  property_type: PropertyType;
+  address_line: string;
+  city: string;
+  state: string | null;
+  country: string | null;
+  postal_code: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  bedrooms: number;
+  bathrooms: number;
+  area_sqm: number | null;
+  parking_spaces: number | null;
+  year_built: number | null;
+  is_featured: boolean;
+  is_premium: boolean;
+  published_at: string | null;
+  owner_id: string;
+  images: PropertyDetailImage[];
+  amenities: AmenityKey[];
+  owner: OwnerProfileFull | null;
+}
+
+/**
+ * Helper público para hidratar un perfil de agente desde un contexto
+ * potencialmente anónimo.
+ *
+ * Devuelve únicamente columnas seguras de mostrar a `anon`
+ * (id, full_name, avatar_url, role, city). Email y phone NUNCA viajan por
+ * esta vía para minimizar el riesgo de filtrado accidental si alguien
+ * futuro hace `.select('*')` en una ruta pública.
+ *
+ * Es la única vía permitida para leer `profiles` desde Server Components
+ * o queries que puedan ejecutarse sin sesión. En contextos autenticados
+ * donde se requieren email/phone, la query debe declarar las columnas
+ * explícitamente y confiar en RLS para gatear.
+ */
+export async function getOwnerPublicProfile(
+  supabase: SupabaseDb,
+  ownerId: string,
+): Promise<OwnerPublicProfile | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name, avatar_url, role, city')
+    .eq('id', ownerId)
+    .maybeSingle();
+  if (error) {
+    console.warn('[getOwnerPublicProfile] profile query failed', error);
+    return null;
+  }
+  return data ?? null;
+}
+
+interface RawDetailRow {
+  id: string;
+  title: string;
+  description: string | null;
+  price: number | string;
+  previous_price: number | string | null;
+  listing_type: ListingType;
+  listing_status: ListingStatus;
+  property_type: PropertyType;
+  address_line: string;
+  city: string;
+  state: string | null;
+  country: string | null;
+  postal_code: string | null;
+  latitude: number | string | null;
+  longitude: number | string | null;
+  bedrooms: number;
+  bathrooms: number | string;
+  area_sqm: number | string | null;
+  parking_spaces: number | null;
+  year_built: number | null;
+  is_featured: boolean;
+  is_premium: boolean;
+  published_at: string | null;
+  owner_id: string;
+  property_images: Array<{
+    id: string;
+    storage_path: string;
+    alt_text: string | null;
+    is_main: boolean;
+    position: number | null;
+  }>;
+  property_amenities: Array<{ amenity: AmenityKey }>;
+}
+
+const DETAIL_SELECT_AUTHED = `
+  id, title, description, price, previous_price,
+  listing_type, listing_status, property_type,
+  address_line, city, state, country, postal_code,
+  latitude, longitude,
+  bedrooms, bathrooms, area_sqm, parking_spaces, year_built,
+  is_featured, is_premium, published_at, owner_id,
+  property_images ( id, storage_path, alt_text, is_main, position ),
+  property_amenities ( amenity ),
+  owner:profiles!properties_owner_id_fkey (
+    id, full_name, avatar_url, email, phone, role, city
+  )
+`;
+
+const DETAIL_SELECT_ANON = `
+  id, title, description, price, previous_price,
+  listing_type, listing_status, property_type,
+  address_line, city, state, country, postal_code,
+  latitude, longitude,
+  bedrooms, bathrooms, area_sqm, parking_spaces, year_built,
+  is_featured, is_premium, published_at, owner_id,
+  property_images ( id, storage_path, alt_text, is_main, position ),
+  property_amenities ( amenity )
+`;
+
+function toPropertyDetail(row: RawDetailRow, owner: OwnerProfileFull | null): PropertyForDetail {
+  const images = [...row.property_images]
+    .map((img) => ({
+      id: img.id,
+      storage_path: img.storage_path,
+      alt_text: img.alt_text,
+      is_main: img.is_main,
+      position: img.position ?? 0,
+    }))
+    .sort((a, b) => {
+      if (a.is_main !== b.is_main) return a.is_main ? -1 : 1;
+      return a.position - b.position;
+    });
+
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    price: Number(row.price),
+    previous_price: row.previous_price == null ? null : Number(row.previous_price),
+    listing_type: row.listing_type,
+    listing_status: row.listing_status,
+    property_type: row.property_type,
+    address_line: row.address_line,
+    city: row.city,
+    state: row.state,
+    country: row.country,
+    postal_code: row.postal_code,
+    latitude: row.latitude == null ? null : Number(row.latitude),
+    longitude: row.longitude == null ? null : Number(row.longitude),
+    bedrooms: row.bedrooms,
+    bathrooms: Number(row.bathrooms),
+    area_sqm: row.area_sqm == null ? null : Number(row.area_sqm),
+    parking_spaces: row.parking_spaces,
+    year_built: row.year_built,
+    is_featured: row.is_featured,
+    is_premium: row.is_premium,
+    published_at: row.published_at,
+    owner_id: row.owner_id,
+    images,
+    amenities: row.property_amenities.map((a) => a.amenity),
+    owner,
+  };
+}
+
+/**
+ * Carga el detalle completo de una propiedad (joins con images, amenities y
+ * owner profile). Devuelve `null` si RLS la oculta o no existe; el caller
+ * decide entre `notFound()` o redirect.
+ *
+ * Estrategia según `isAuthenticated`:
+ * - Autenticado → query con join completo a profiles (incluye email/phone);
+ *   RLS protege el acceso a esas columnas.
+ * - Anónimo     → query SIN profile, y el perfil se hidrata por separado
+ *   vía `getOwnerPublicProfile` (solo columnas seguras).
+ *
+ * Esta separación previene que un `.select('*')` futuro filtre email/phone
+ * en contextos públicos.
+ */
+export async function getPropertyDetail(
+  supabase: SupabaseDb,
+  id: string,
+  opts: { isAuthenticated: boolean } = { isAuthenticated: false },
+): Promise<PropertyForDetail | null> {
+  const select = opts.isAuthenticated ? DETAIL_SELECT_AUTHED : DETAIL_SELECT_ANON;
+  const { data, error } = await supabase
+    .from('properties')
+    .select(select)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[getPropertyDetail] query failed', error);
+    throw error;
+  }
+  if (!data) return null;
+
+  const row = data as unknown as RawDetailRow & {
+    owner?: OwnerProfileFull | OwnerProfileFull[] | null;
+  };
+
+  let owner: OwnerProfileFull | null = null;
+  if (opts.isAuthenticated) {
+    const rawOwner = Array.isArray(row.owner) ? (row.owner[0] ?? null) : (row.owner ?? null);
+    owner = rawOwner ?? null;
+  } else {
+    const publicProfile = await getOwnerPublicProfile(supabase, row.owner_id);
+    owner = publicProfile ? { ...publicProfile, email: null, phone: null } : null;
+  }
+
+  return toPropertyDetail(row, owner);
 }

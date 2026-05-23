@@ -145,8 +145,8 @@
         "Map placeholder: imagen estática con pin animado (sin Google Maps real en MVP)",
         "Footer con copyright"
       ],
-      "status": "pending",
-      "notes": "Mockup en docs/designs/property_details_screen/. Si el user no está logueado y RLS bloquea, redirigir a /login con searchParam next=/property/{id}."
+      "status": "done",
+      "notes": "Mockup en docs/designs/property_details_screen/. La nota original (redirigir a /login si RLS bloquea) quedó obsoleta: hoy la página es pública y devolvemos 404 si RLS oculta (decisión spec §9 D2, 2026-05-22). Spec aprobado con 2 ajustes del leader (2026-05-23): (1) helper getOwnerPublicProfile centraliza lectura segura de profiles desde rutas públicas; (2) next= apunta a /property/[id] (no /schedule). Migración 0014 aplicada en remoto (abre property_amenities y profiles a anon con USING restrictivo). Reviewer APPROVED 2026-05-23; init.sh full OK (lint + type-check + build)."
     },
     {
       "name": "search_filters_modal",
