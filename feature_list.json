@@ -81,8 +81,8 @@
         "Notif badge muestra count de notifications.read_at IS NULL para el user actual",
         "Skip link para a11y, focus visible"
       ],
-      "status": "pending",
-      "notes": "El admin del mockup tiene navegación lateral diferente al usuario. Designer debe verificar en property_management_dashboard/code.html y admin_user_directory_cards/code.html que la TopNav puede ser compartida o si admin requiere su propio shell."
+      "status": "done",
+      "notes": "Decisiones cerradas (sesión 2026-05-22): (1) sin AdminSidebar lateral — el HTML de admin_user_directory_cards confirma TopNav horizontal igual que el resto; (2) src/app/page.tsx NO se mueve a (app)/ en esta feature, se reasigna cuando llegue home_discover_screen; (3) x-pathname inyectado desde el middleware para que TopNav permanezca Server Component. Reviewer APPROVED 2026-05-22; 2 fixes no críticos aplicados antes del commit (rounded-DEFAULT → rounded/rounded-sm; instalación de tailwindcss-animate para la animación del drawer). Smoke test visual diferido a home_discover_screen (primera feature que materializa el shell)."
     },
     {
       "name": "login_screen",
