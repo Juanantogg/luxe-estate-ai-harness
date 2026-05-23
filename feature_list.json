@@ -101,8 +101,8 @@
         "Decoración de fondo (blobs verdes blurred) como en el mockup",
         "Layout responsive: card centrada, max-w-md en móvil/desktop"
       ],
-      "status": "pending",
-      "notes": "Mockup en docs/designs/social_login_and_registration/. Designer decide si /login y /signup son rutas separadas o la misma con tabs/searchParam."
+      "status": "done",
+      "notes": "Mockup en docs/designs/social_login_and_registration/. Decisión designer: ruta única /login con toggle vía ?mode=signup; /signup es alias permanentRedirect 308. Se agregó signUpAndRedirect en src/lib/auth/actions.ts (sólo añadido, sin tocar las existentes). Reviewer APPROVED 2026-05-22; lint + type-check + build OK."
     },
     {
       "name": "home_discover_screen",

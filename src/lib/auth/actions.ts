@@ -116,6 +116,24 @@ export async function signUpWithPassword(
 }
 
 /**
+ * Variante de `signUpWithPassword` pensada para `useActionState`: en éxito
+ * redirige a `/auth/verify-email?email=...` (no retorna). En error retorna
+ * `AuthFailure` para que el componente lo muestre inline.
+ *
+ * Mantiene `signUpWithPassword` intacto: callers que necesiten el `email`
+ * para otro flujo (p.ej. tests) siguen usando la original.
+ */
+export async function signUpAndRedirect(formData: FormData): Promise<AuthResult> {
+  const result = await signUpWithPassword(formData);
+  if (!result.ok) {
+    return result;
+  }
+
+  const email = result.data?.email ?? '';
+  redirect(`/auth/verify-email?email=${encodeURIComponent(email)}`);
+}
+
+/**
  * Inicia el flujo OAuth con Google. Supabase devuelve la URL de
  * consentimiento; la action hace `redirect()` a esa URL externa.
  *
