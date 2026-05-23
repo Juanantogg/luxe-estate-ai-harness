@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Chip, Icon } from '@/components/ui';
+import { FiltersTrigger } from '@/components/search';
+import { Chip } from '@/components/ui';
 import { cn } from '@/lib/utils/cn';
 
 const CHIPS: Array<{ value: string; label: string }> = [
@@ -22,6 +23,11 @@ export interface PropertyTypeChipsProps {
  * que reemplaza `?type=...` preservando los demás searchParams. El chip
  * activo lleva `aria-current="page"` y la variant `selected`. En mobile la
  * fila hace scroll horizontal con `hide-scroll` (utility en globals.css).
+ *
+ * Al final de la fila va `FiltersTrigger`, que es un Client Component que
+ * abre el modal de filtros completos (`<FiltersModal>`). Reemplaza al
+ * `<Link href="/search?filters=open">` anterior para evitar un viaje
+ * innecesario a `/search` cuando el usuario todavía no aplicó filtros.
  */
 export function PropertyTypeChips({ current, preserveParams }: PropertyTypeChipsProps) {
   const buildHref = (value: string) => {
@@ -56,16 +62,7 @@ export function PropertyTypeChips({ current, preserveParams }: PropertyTypeChips
 
       <div className="mx-2 h-6 w-px shrink-0 bg-divider" aria-hidden />
 
-      <Link
-        href="/search?filters=open"
-        className={cn(
-          'inline-flex shrink-0 items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium text-on-surface transition-colors hover:bg-primary-soft hover:text-primary',
-          'focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none',
-        )}
-      >
-        <Icon name="tune" size="sm" />
-        Filtros
-      </Link>
+      <FiltersTrigger />
     </div>
   );
 }

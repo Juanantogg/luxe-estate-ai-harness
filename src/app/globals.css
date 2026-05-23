@@ -98,4 +98,59 @@ body {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /*
+   * Thumb estilizado para <input type="range"> usado por el RangeSlider del
+   * modal de filtros. Los pseudo-elementos ::-webkit-slider-thumb y
+   * ::-moz-range-thumb no se pueden tematizar con tokens Tailwind, así que
+   * esta es la excepción: la única utility de color que toca hex directos
+   * (vía var() del propio sistema).
+   *
+   * El track se oculta porque el RangeSlider pinta su propio track con un
+   * div detrás de los dos inputs superpuestos.
+   */
+  .range-thumb-primary {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    pointer-events: none;
+  }
+  .range-thumb-primary::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 9999px;
+    background: var(--color-surface);
+    border: 2px solid var(--color-primary);
+    box-shadow: var(--shadow-card);
+    cursor: pointer;
+    pointer-events: auto;
+    transition: transform 150ms ease-out;
+  }
+  .range-thumb-primary::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+  }
+  .range-thumb-primary::-moz-range-thumb {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 9999px;
+    background: var(--color-surface);
+    border: 2px solid var(--color-primary);
+    box-shadow: var(--shadow-card);
+    cursor: pointer;
+    pointer-events: auto;
+    transition: transform 150ms ease-out;
+  }
+  .range-thumb-primary::-moz-range-thumb:hover {
+    transform: scale(1.1);
+  }
+  .range-thumb-primary::-webkit-slider-runnable-track {
+    background: transparent;
+    border: none;
+  }
+  .range-thumb-primary::-moz-range-track {
+    background: transparent;
+    border: none;
+  }
 }

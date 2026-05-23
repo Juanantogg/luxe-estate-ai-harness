@@ -165,8 +165,8 @@
         "Botón Show N Homes: muestra count en vivo (preview query)",
         "Botón Clear all filters: resetea searchParams a vacío"
       ],
-      "status": "pending",
-      "notes": "Mockup en docs/designs/search_filters_screen/. El primary verde del HTML original (#006611) se normaliza a mosque #006655 (decisión Fase 2)."
+      "status": "done",
+      "notes": "Mockup en docs/designs/search_filters_screen/. El primary verde del HTML original (#006611) se normaliza a mosque #006655 (decisión Fase 2). Spec en progress/search_filters_modal/design.md (2026-05-23). Decisiones cerradas con el humano antes de implementar: (1) amenities OR; (2) slider dual condicionado por listing=rent; (3) location ilike sobre city; (4) modal div custom con focus-trap propio (sin Radix, sin <dialog> nativo). Reviewer APPROVED 2026-05-23; init.sh full OK (lint + type-check + build). 3 NITs no bloqueantes documentados en review.md (countActiveFilters duplicado inline, swipe-to-dismiss diferido, edge case z-index del slider con ambos thumbs en mínimo)."
     },
     {
       "name": "favorites_list_screen",
