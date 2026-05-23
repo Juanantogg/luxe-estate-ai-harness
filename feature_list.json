@@ -123,8 +123,8 @@
         "Empty state si no hay properties: ilustración + CTA",
         "Pagination via 'Load more' que aumenta limit usando searchParams"
       ],
-      "status": "pending",
-      "notes": "Mockup en docs/designs/home_discover_screen/. Esta es la primera feature que materializa el sistema visual real; designer debe leer el HTML con detalle."
+      "status": "done",
+      "notes": "Mockup en docs/designs/home_discover_screen/. Decisiones cerradas (2026-05-22): (1) home + property detail + search son páginas PÚBLICAS — addendum D1-D7 en design.md §18; el shell (app)/ deja de proteger y delega en middleware (documentado en CLAUDE.md); (2) TopNav variant 'app' soporta session=null con CTAs 'Iniciar sesión'/'Registrarse'; (3) migración 0013_anon_select_active_properties aplicada vía MCP y verificada; (4) badges traducidos al español; (5) fallback includeOlderIfEmpty activado para New in Market; (6) search full-text diferida a search_filters_modal. Reviewer APPROVED con 3 observaciones no bloqueantes ya aplicadas. lint + type-check + build OK."
     },
     {
       "name": "property_details_screen",

@@ -86,3 +86,16 @@ body {
     'Segoe UI',
     sans-serif;
 }
+
+/* Utilities ad-hoc que no caen como tokens */
+@layer utilities {
+  /* Esconde la scrollbar pero conserva el scroll. Usada por filas de chips
+     horizontalmente scrolleables en mobile. */
+  .hide-scroll::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scroll {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

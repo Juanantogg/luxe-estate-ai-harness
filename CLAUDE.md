@@ -107,6 +107,31 @@ Se ampliará en Fase 2 con neutrales y semánticos derivados de `docs/designs/`.
 - `docs/` — documentación interna (designs, conventions, design-system, data-model).
 - `progress/` — directorio de trabajo de los subagentes.
 
+### Shell público + protección por middleware
+- **Por qué cambió**: hasta `home_discover_screen` el layout `(app)/` era el
+  guardia ("si entrás acá, hay sesión"). Para que la home y los listados
+  funcionen como escaparate público (SEO + experiencia de portafolio sin
+  fricción de login), `(app)/layout.tsx` deja de redirigir y delega 100%
+  en el middleware.
+- **Modelo actual**: las rutas privadas se declaran en `protectedPaths`
+  dentro de `src/lib/supabase/proxy.ts` (`/favorites`, `/profile`, `/visits`,
+  `/dashboard/*`, `/admin/*`). Cualquier ruta NO listada es pública y debe
+  poder renderizar con `session === null`.
+- **Consecuencia para features futuras**:
+  1. Si una feature toca una página pública, sus componentes deben tolerar
+     `user === null` (sin asumir profile, sin pintar acciones autenticadas
+     como CTAs sin guard).
+  2. Si la feature agrega una página privada nueva, **debe agregar su
+     prefijo a `protectedPaths`** en la misma migración del PR. No
+     ponerla solo bajo `(app)/` y asumir protección.
+  3. RLS de Supabase es la última línea de defensa: si una página pública
+     consulta una tabla, la tabla necesita política `for select to anon`.
+     Hoy abiertas a `anon`: `properties` (active) y `property_images`
+     (de propiedades active). El resto sigue cerrado.
+- **`TopNav` variant `app`**: soporta `session === null` con CTAs
+  "Iniciar sesión" / "Registrarse" en lugar del avatar dropdown. Variants
+  `dashboard` y `admin` siguen exigiendo sesión (redirigen si falta).
+
 ### Aprobación humana opt-in por feature (`requires_approval`)
 - Las features en `feature_list.json` pueden marcarse con `requires_approval:
   true` (default `false`).

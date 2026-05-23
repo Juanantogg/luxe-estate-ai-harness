@@ -18,10 +18,12 @@ export type TopNavVariant = 'app' | 'dashboard' | 'admin';
 export interface TopNavProps {
   variant: TopNavVariant;
   /**
-   * Permite al layout pasar la sesión ya resuelta para evitar doble fetch.
-   * Si no se provee, el TopNav la fetcha él mismo.
+   * Sesión ya resuelta:
+   * - `undefined`: el TopNav la fetcha él mismo.
+   * - `null`: el caller sabe que es anónimo (solo válido para `variant: 'app'`).
+   * - objeto: hay sesión.
    */
-  session?: { user: User; profile: Profile | null };
+  session?: { user: User; profile: Profile | null } | null;
 }
 
 interface VariantConfig {
@@ -127,43 +129,61 @@ function isLinkActive(pathname: string, href: string): boolean {
   return pathname.startsWith(`${pathHref}/`);
 }
 
+// Clases helper que replican Button variants para los CTAs anónimos.
+// No se introduce un primitivo nuevo (`buttonClasses`) porque solo se usa
+// aquí; si crece, se promueve a helper compartido.
+const ANON_CTA_BASE =
+  'inline-flex h-10 items-center justify-center rounded px-4 py-2.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none';
+const ANON_CTA_GHOST = 'bg-transparent text-on-surface hover:bg-primary-soft hover:text-primary';
+const ANON_CTA_PRIMARY = 'bg-primary text-on-primary shadow-soft hover:bg-primary-hover';
+
 /**
  * Barra de navegación superior, sticky, reutilizada por los layouts
  * `(app)`, `(dashboard)` y `(admin)`. Server Component: lee la sesión y
  * el unread count de notificaciones server-side y pasa solo datos
  * serializables a los Client Components hijos.
+ *
+ * Para `variant === 'app'` soporta el caso anónimo (`session === null`):
+ * renderiza CTAs "Iniciar sesión" + "Registrarse" en lugar del avatar y
+ * omite el query de notificaciones. Las variantes `dashboard` y `admin`
+ * siguen requiriendo sesión y redirigen a `/login` si no la hay.
  */
 export async function TopNav({ variant, session: passedSession }: TopNavProps) {
-  const session = passedSession ?? (await getSessionAndProfile());
+  const session = passedSession === undefined ? await getSessionAndProfile() : passedSession;
 
-  // Defensivo: estos shells exigen sesión. El middleware y los layouts
-  // ya redirigen, pero si por composición se renderiza sin sesión, paramos.
-  if (!session?.user) {
+  // Defensivo: dashboard y admin asumen sesión. La variant `app` ahora
+  // soporta anónimo (decisión de la feature `home_discover_screen`).
+  if (!session?.user && variant !== 'app') {
     redirect('/login');
   }
 
-  const { user, profile } = session;
   const config = VARIANT_CONFIG[variant];
+  const profile = session?.profile ?? null;
+  const user = session?.user ?? null;
   const role = profile?.role ?? 'user';
 
   // Detectar pathname desde el header inyectado por el middleware.
   const requestHeaders = await headers();
   const pathname = requestHeaders.get('x-pathname') ?? '/';
 
-  // Unread count de notificaciones. Si falla, se renderiza la campana sin dot.
+  // Unread count de notificaciones. Solo se consulta si hay sesión —
+  // sin user el filtro `recipient_id` no tiene sentido y dispararía
+  // queries inútiles (ver § 18 R10 del spec).
   let unreadCount = 0;
-  try {
-    const supabase = await createClient();
-    const { count, error } = await supabase
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('recipient_id', user.id)
-      .is('read_at', null);
-    if (!error && typeof count === 'number') {
-      unreadCount = count;
+  if (user) {
+    try {
+      const supabase = await createClient();
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('recipient_id', user.id)
+        .is('read_at', null);
+      if (!error && typeof count === 'number') {
+        unreadCount = count;
+      }
+    } catch (err) {
+      console.warn('[TopNav] Error fetching unread notifications count', err);
     }
-  } catch (err) {
-    console.warn('[TopNav] Error fetching unread notifications count', err);
   }
 
   const links: NavLink[] = config.links.map((link) => ({
@@ -171,9 +191,11 @@ export async function TopNav({ variant, session: passedSession }: TopNavProps) {
     isActive: isLinkActive(pathname, link.href),
   }));
 
-  const dropdownItems = buildDropdownItems(role, variant);
-  const displayName = profile?.full_name?.trim() || user.email?.split('@')[0] || 'Usuario';
-  const email = user.email ?? '';
+  const dropdownItems = user ? buildDropdownItems(role, variant) : [];
+  const displayName = user
+    ? profile?.full_name?.trim() || user.email?.split('@')[0] || 'Usuario'
+    : '';
+  const email = user?.email ?? '';
   const roleLabel = ROLE_LABEL[role] ?? role;
 
   return (
@@ -217,32 +239,55 @@ export async function TopNav({ variant, session: passedSession }: TopNavProps) {
               <Icon name="search" size="md" />
             </Link>
 
-            <NotifBell unreadCount={unreadCount} />
+            {user ? (
+              <>
+                <NotifBell unreadCount={unreadCount} />
 
-            {config.showNameBlock && (
-              <div className="hidden flex-col items-end sm:flex">
-                <span className="text-sm leading-tight font-semibold text-on-surface">
-                  {displayName}
-                </span>
-                <span className="text-xs leading-tight text-muted">{roleLabel}</span>
-              </div>
+                {config.showNameBlock && (
+                  <div className="hidden flex-col items-end sm:flex">
+                    <span className="text-sm leading-tight font-semibold text-on-surface">
+                      {displayName}
+                    </span>
+                    <span className="text-xs leading-tight text-muted">{roleLabel}</span>
+                  </div>
+                )}
+
+                <div className="hidden md:block">
+                  <AvatarDropdown
+                    items={dropdownItems}
+                    displayName={displayName}
+                    email={email}
+                    avatarUrl={profile?.avatar_url ?? null}
+                  />
+                </div>
+
+                <MobileNavDrawer
+                  links={links}
+                  dropdownItems={dropdownItems}
+                  displayName={displayName}
+                  email={email}
+                />
+              </>
+            ) : (
+              <>
+                <Link href="/login" className={cn(ANON_CTA_BASE, ANON_CTA_GHOST)}>
+                  Iniciar sesión
+                </Link>
+                <Link
+                  href="/login?mode=signup"
+                  className={cn('hidden sm:inline-flex', ANON_CTA_BASE, ANON_CTA_PRIMARY)}
+                >
+                  Registrarse
+                </Link>
+                <MobileNavDrawer
+                  links={links}
+                  dropdownItems={[]}
+                  displayName=""
+                  email=""
+                  anonymous
+                />
+              </>
             )}
-
-            <div className="hidden md:block">
-              <AvatarDropdown
-                items={dropdownItems}
-                displayName={displayName}
-                email={email}
-                avatarUrl={profile?.avatar_url ?? null}
-              />
-            </div>
-
-            <MobileNavDrawer
-              links={links}
-              dropdownItems={dropdownItems}
-              displayName={displayName}
-              email={email}
-            />
           </div>
         </div>
       </div>

@@ -15,6 +15,11 @@ export interface MobileNavDrawerProps {
   /** Display name del header del drawer. */
   displayName: string;
   email: string;
+  /**
+   * Modo anónimo: el header se reemplaza por CTAs "Iniciar sesión" /
+   * "Registrarse" y se omite el botón de cerrar sesión.
+   */
+  anonymous?: boolean;
 }
 
 /**
@@ -28,6 +33,7 @@ export function MobileNavDrawer({
   dropdownItems,
   displayName,
   email,
+  anonymous = false,
 }: MobileNavDrawerProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -137,10 +143,17 @@ export function MobileNavDrawer({
             )}
           >
             <div className="flex items-center justify-between border-b border-divider px-4 py-4">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-on-surface">{displayName}</p>
-                <p className="truncate text-xs text-muted">{email}</p>
-              </div>
+              {anonymous ? (
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-on-surface">Bienvenido</p>
+                  <p className="text-xs text-muted">Inicia sesión para guardar y agendar.</p>
+                </div>
+              ) : (
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-on-surface">{displayName}</p>
+                  <p className="truncate text-xs text-muted">{email}</p>
+                </div>
+              )}
               <button
                 type="button"
                 aria-label="Cerrar menú"
@@ -153,6 +166,31 @@ export function MobileNavDrawer({
                 <Icon name="close" size="md" />
               </button>
             </div>
+
+            {anonymous && (
+              <div className="space-y-2 border-b border-divider px-4 py-4">
+                <Link
+                  href="/login?mode=signup"
+                  onClick={close}
+                  className={cn(
+                    'inline-flex h-10 w-full items-center justify-center rounded bg-primary px-4 py-2.5 text-sm font-medium text-on-primary shadow-soft transition-colors hover:bg-primary-hover',
+                    'focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none',
+                  )}
+                >
+                  Registrarse
+                </Link>
+                <Link
+                  href="/login"
+                  onClick={close}
+                  className={cn(
+                    'inline-flex h-10 w-full items-center justify-center rounded border border-outline bg-transparent px-4 py-2.5 text-sm font-medium text-on-surface transition-colors hover:border-primary hover:text-primary',
+                    'focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none',
+                  )}
+                >
+                  Iniciar sesión
+                </Link>
+              </div>
+            )}
 
             <nav aria-label="Navegación principal" className="flex-1 overflow-y-auto px-2 py-3">
               <ul className="space-y-1">
@@ -203,20 +241,22 @@ export function MobileNavDrawer({
               )}
             </nav>
 
-            <div className="border-t border-divider px-2 py-3">
-              <form action={signOut}>
-                <button
-                  type="submit"
-                  className={cn(
-                    'flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-danger transition-colors',
-                    'hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-none',
-                  )}
-                >
-                  <Icon name="logout" size="sm" aria-hidden />
-                  Cerrar sesión
-                </button>
-              </form>
-            </div>
+            {!anonymous && (
+              <div className="border-t border-divider px-2 py-3">
+                <form action={signOut}>
+                  <button
+                    type="submit"
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-danger transition-colors',
+                      'hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-none',
+                    )}
+                  >
+                    <Icon name="logout" size="sm" aria-hidden />
+                    Cerrar sesión
+                  </button>
+                </form>
+              </div>
+            )}
           </div>
         </div>
       )}
