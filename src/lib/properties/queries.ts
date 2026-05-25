@@ -325,6 +325,8 @@ export interface PropertyForDetail {
   is_premium: boolean;
   published_at: string | null;
   owner_id: string;
+  /** Zona horaria IANA de la propiedad (default `America/Mexico_City`). */
+  timezone: string;
   images: PropertyDetailImage[];
   amenities: AmenityKey[];
   owner: OwnerProfileFull | null;
@@ -385,6 +387,7 @@ interface RawDetailRow {
   is_premium: boolean;
   published_at: string | null;
   owner_id: string;
+  timezone: string | null;
   property_images: Array<{
     id: string;
     storage_path: string;
@@ -401,7 +404,7 @@ const DETAIL_SELECT_AUTHED = `
   address_line, city, state, country, postal_code,
   latitude, longitude,
   bedrooms, bathrooms, area_sqm, parking_spaces, year_built,
-  is_featured, is_premium, published_at, owner_id,
+  is_featured, is_premium, published_at, owner_id, timezone,
   property_images ( id, storage_path, alt_text, is_main, position ),
   property_amenities ( amenity ),
   owner:profiles!properties_owner_id_fkey (
@@ -415,7 +418,7 @@ const DETAIL_SELECT_ANON = `
   address_line, city, state, country, postal_code,
   latitude, longitude,
   bedrooms, bathrooms, area_sqm, parking_spaces, year_built,
-  is_featured, is_premium, published_at, owner_id,
+  is_featured, is_premium, published_at, owner_id, timezone,
   property_images ( id, storage_path, alt_text, is_main, position ),
   property_amenities ( amenity )
 `;
@@ -459,6 +462,7 @@ function toPropertyDetail(row: RawDetailRow, owner: OwnerProfileFull | null): Pr
     is_premium: row.is_premium,
     published_at: row.published_at,
     owner_id: row.owner_id,
+    timezone: row.timezone ?? 'America/Mexico_City',
     images,
     amenities: row.property_amenities.map((a) => a.amenity),
     owner,

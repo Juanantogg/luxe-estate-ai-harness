@@ -283,6 +283,7 @@ export type Database = {
           published_at: string | null;
           search_vector: unknown;
           state: string | null;
+          timezone: string;
           title: string;
           updated_at: string;
           year_built: number | null;
@@ -312,6 +313,7 @@ export type Database = {
           published_at?: string | null;
           search_vector?: unknown;
           state?: string | null;
+          timezone?: string;
           title: string;
           updated_at?: string;
           year_built?: number | null;
@@ -341,6 +343,7 @@ export type Database = {
           published_at?: string | null;
           search_vector?: unknown;
           state?: string | null;
+          timezone?: string;
           title?: string;
           updated_at?: string;
           year_built?: number | null;
@@ -486,6 +489,10 @@ export type Database = {
       current_user_role: {
         Args: never;
         Returns: Database['public']['Enums']['user_role'];
+      };
+      get_agent_occupied_slots: {
+        Args: { agent: string; from_ts: string; to_ts: string };
+        Returns: { scheduled_at: string }[];
       };
       is_admin: { Args: never; Returns: boolean };
       is_agent_or_above: { Args: never; Returns: boolean };

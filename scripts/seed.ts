@@ -117,6 +117,9 @@ type SeedProperty = {
   previousPrice?: number;
   publishedDaysAgo: number;
   amenities: Amenity[];
+  /** Zona horaria IANA de la propiedad (ej. 'America/Los_Angeles'). Si no
+   *  se especifica, se usa el default de la DB ('America/Mexico_City'). */
+  timezone?: string;
 };
 
 const PROPERTIES: SeedProperty[] = [
@@ -142,6 +145,7 @@ const PROPERTIES: SeedProperty[] = [
     isPremium: true,
     publishedDaysAgo: 14,
     amenities: ['pool', 'gym', 'smart_home', 'wine_cellar', 'ev_charging'],
+    timezone: 'America/Los_Angeles',
   },
   {
     ownerEmail: 'marcus@luxe-estate.test',
@@ -164,6 +168,7 @@ const PROPERTIES: SeedProperty[] = [
     isFeatured: true,
     publishedDaysAgo: 3,
     amenities: ['gym', 'parking', 'air_conditioning', 'smart_home'],
+    timezone: 'America/Vancouver',
   },
   {
     ownerEmail: 'david@luxe-estate.test',
@@ -185,6 +190,7 @@ const PROPERTIES: SeedProperty[] = [
     yearBuilt: 2015,
     publishedDaysAgo: 5,
     amenities: ['garden', 'parking', 'central_heating'],
+    timezone: 'America/Los_Angeles',
   },
   {
     ownerEmail: 'sarah@luxe-estate.test',
@@ -205,6 +211,7 @@ const PROPERTIES: SeedProperty[] = [
     yearBuilt: 2010,
     publishedDaysAgo: 2,
     amenities: ['wifi', 'air_conditioning'],
+    timezone: 'America/Los_Angeles',
   },
   {
     ownerEmail: 'marcus@luxe-estate.test',
@@ -226,6 +233,7 @@ const PROPERTIES: SeedProperty[] = [
     yearBuilt: 2018,
     publishedDaysAgo: 20,
     amenities: ['central_heating', 'garden', 'parking'],
+    timezone: 'America/Los_Angeles',
   },
   {
     ownerEmail: 'david@luxe-estate.test',
@@ -246,6 +254,7 @@ const PROPERTIES: SeedProperty[] = [
     yearBuilt: 2017,
     publishedDaysAgo: 6,
     amenities: ['pool', 'gym', 'air_conditioning', 'wifi'],
+    timezone: 'America/New_York',
   },
   {
     ownerEmail: 'sarah.jenkins@luxe-estate.test',
@@ -269,6 +278,7 @@ const PROPERTIES: SeedProperty[] = [
     isFeatured: true,
     publishedDaysAgo: 1,
     amenities: ['pool', 'smart_home', 'gym', 'wine_cellar', 'ev_charging', 'central_heating'],
+    timezone: 'America/Los_Angeles',
   },
   {
     ownerEmail: 'marcus@luxe-estate.test',
@@ -289,6 +299,7 @@ const PROPERTIES: SeedProperty[] = [
     yearBuilt: 2014,
     publishedDaysAgo: 10,
     amenities: ['gym', 'air_conditioning', 'wifi'],
+    timezone: 'America/New_York',
   },
   {
     ownerEmail: 'david@luxe-estate.test',
@@ -311,6 +322,7 @@ const PROPERTIES: SeedProperty[] = [
     isPremium: true,
     publishedDaysAgo: 8,
     amenities: ['garden', 'smart_home', 'ev_charging', 'central_heating'],
+    timezone: 'America/Los_Angeles',
   },
   {
     ownerEmail: 'sarah@luxe-estate.test',
@@ -331,6 +343,7 @@ const PROPERTIES: SeedProperty[] = [
     yearBuilt: 2019,
     publishedDaysAgo: 15,
     amenities: ['garden', 'central_heating', 'smart_home'],
+    timezone: 'Europe/Copenhagen',
   },
   {
     ownerEmail: 'sarah@luxe-estate.test',
@@ -350,6 +363,7 @@ const PROPERTIES: SeedProperty[] = [
     yearBuilt: 2016,
     publishedDaysAgo: 30,
     amenities: ['pool', 'gym', 'wifi', 'air_conditioning'],
+    timezone: 'America/New_York',
   },
   {
     ownerEmail: 'sarah@luxe-estate.test',
@@ -374,6 +388,7 @@ const PROPERTIES: SeedProperty[] = [
     previousPrice: 4800000,
     publishedDaysAgo: 4,
     amenities: ['gym', 'smart_home', 'wine_cellar', 'air_conditioning'],
+    timezone: 'America/New_York',
   },
 ];
 
@@ -496,6 +511,7 @@ async function upsertProperty(
       is_premium: seed.isPremium ?? false,
       previous_price: seed.previousPrice ?? null,
       published_at: publishedAt.toISOString(),
+      timezone: seed.timezone ?? 'America/Mexico_City',
     })
     .select('id')
     .single();

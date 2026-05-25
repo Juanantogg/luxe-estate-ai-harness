@@ -206,8 +206,8 @@
         "Layout split: md:w-5/12 sidebar + md:w-7/12 form",
         "Mensaje opcional max 500 chars con contador"
       ],
-      "status": "pending",
-      "notes": "Mockup en docs/designs/schedule_visit_screen/. requires_approval por lógica de validación de disponibilidad — designer debe definir: ¿permitir agendar el mismo slot a varios users? Default: no. ¿Permitir agendar fuera de horario laboral? Default: 9am-6pm L-V."
+      "status": "done",
+      "notes": "Mockup en docs/designs/schedule_visit_screen/. Decisiones cerradas (2026-05-25): (1) slot exclusivo por agente (constraint único parcial DB sobre (agent_id, scheduled_at) cuando status in (pending, confirmed, rescheduled)); (2) horario L-D 9:00-19:30 (slots cada 30min, 22 por día); (3) ventana [now+24h, now+60d]; (4) status inicial 'confirmed'; (5) notification al agente vía trigger DB SECURITY DEFINER (sin service_role). Scope ampliado: agregado properties.timezone (text NOT NULL default 'America/Mexico_City') con backfill por ciudad — el render del calendario y el body de la notification se hacen en zona local de la propiedad. Migraciones 0016 (timezone) y 0017 (slot constraint + trigger + RPC get_agent_occupied_slots) aplicadas en remoto. Reviewer APPROVED WITH NITS 2026-05-25; 4 NITs cosméticos aplicados pre-commit (input hidden muerto, useEffect sin efecto, typo Australia, ring-primary→ring-primary-soft). 5 NITs no bloqueantes restantes documentados en review.md (incluye divergencia 24h vs mockup 12h — decisión humana: dejar 24h por neutralidad es-MX). init.sh full OK (lint + type-check + build). Test manual end-to-end documentado en progress/schedule_visit_screen/notes.md."
     },
     {
       "name": "user_profile_screen",
