@@ -1,5 +1,15 @@
 export { PropertyCard } from './PropertyCard';
-export type { PropertyCardProps, PropertyCardVariant } from './PropertyCard';
+export type {
+  PropertyCardProps,
+  PropertyCardVariant,
+  PropertyCardOrientation,
+} from './PropertyCard';
+
+export { PropertyCardSkeleton } from './PropertyCardSkeleton';
+export type {
+  PropertyCardSkeletonProps,
+  PropertyCardSkeletonOrientation,
+} from './PropertyCardSkeleton';
 
 export { FavoriteButton } from './FavoriteButton';
 export type { FavoriteButtonProps } from './FavoriteButton';

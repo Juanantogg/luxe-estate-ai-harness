@@ -185,6 +185,73 @@ export async function getNewInMarketProperties(
   };
 }
 
+export type FavoritesSort = 'date_desc' | 'price_asc' | 'price_desc';
+
+/**
+ * Lista de favoritos del usuario (con datos de propiedad y main image)
+ * lista para alimentar `PropertyCard`. Filtra a sólo propiedades `active`
+ * para no mostrar fantasmas pausadas o eliminadas.
+ *
+ * El sort se aplica server-side via `.order(...)`:
+ * - `date_desc` → favoritos más recientes primero (default).
+ * - `price_asc` / `price_desc` → orden por precio de la propiedad.
+ *
+ * Devuelve `[]` si el usuario no tiene favoritos o si la query falla
+ * (loggea la causa). El caller distingue empty vs error según corresponda
+ * en la UI; en este MVP tratamos el error como empty con copy especial.
+ */
+export async function getUserFavorites(
+  supabase: SupabaseDb,
+  userId: string,
+  sort: FavoritesSort = 'date_desc',
+): Promise<PropertyForCard[]> {
+  let q = supabase
+    .from('favorites')
+    .select(
+      `
+      created_at,
+      properties!inner (
+        id, title, address_line, city, state, country, price, previous_price,
+        listing_type, property_type, bedrooms, bathrooms, area_sqm,
+        is_featured, is_premium, published_at, listing_status,
+        property_images!inner ( storage_path, alt_text, is_main, position )
+      )
+    `,
+    )
+    .eq('user_id', userId)
+    .eq('properties.listing_status', 'active')
+    .eq('properties.property_images.is_main', true);
+
+  if (sort === 'date_desc') {
+    q = q.order('created_at', { ascending: false });
+  } else if (sort === 'price_asc') {
+    q = q.order('price', { ascending: true, referencedTable: 'properties' });
+  } else {
+    q = q.order('price', { ascending: false, referencedTable: 'properties' });
+  }
+
+  const { data, error } = await q;
+  if (error) {
+    console.warn('[getUserFavorites] query failed', error);
+    return [];
+  }
+
+  // El embed devuelve `properties` como objeto (relación N→1). PostgREST a
+  // veces lo tipa como array según la versión del schema cache; aceptamos
+  // ambas formas para robustez.
+  type FavoriteRow = {
+    created_at: string;
+    properties: RawPropertyRow | RawPropertyRow[] | null;
+  };
+
+  return (data as unknown as FavoriteRow[])
+    .map((row) => {
+      const property = Array.isArray(row.properties) ? row.properties[0] : row.properties;
+      return property ? toPropertyForCard(property) : null;
+    })
+    .filter((p): p is PropertyForCard => p !== null);
+}
+
 /**
  * Devuelve el set de IDs de propiedades que el usuario tiene favoriteadas
  * dentro del subconjunto que se pasa. Una sola query con `IN (...)` para

@@ -186,8 +186,8 @@
         "Empty state con ilustración y CTA 'Explorar propiedades' → /",
         "Count en el header ('Tienes N propiedades guardadas')"
       ],
-      "status": "pending",
-      "notes": "Mockup en docs/designs/favorites_list_screen/. Reutiliza PropertyCard pero con variante 'with-cta-button'."
+      "status": "done",
+      "notes": "Mockup en docs/designs/favorites_list_screen/. Decisiones cerradas con el humano antes de codear (2026-05-25): (1) list view con card horizontal completa via prop `orientation` en PropertyCard (no simplificada); (2) badges overlay NEW LISTING / PRICE DROP FUERA de scope (mejora horizontal posterior a derive-badges.ts). PropertyCard extendido con 2 props nuevas (`showBookingCTA`, `orientation`) ambas con defaults conservadores → cero regresión en Home/Search. Nuevo helper `getUserFavorites` en queries.ts confía en RLS (mig 0006) y filtra defensivamente. Empty state propio `FavoritesEmptyState` con prop `reason` (en MVP la página siempre pasa `never_favorited`; diferenciar `all_unavailable` queda como deuda menor documentada en review.md NIT #2). CTA 'Reservar visita' apunta a `/property/[id]/visit` que aún no existe (404 hasta schedule_visit_screen — riesgo aceptado en spec). Reviewer APPROVED 2026-05-25; init.sh full OK (lint + type-check + build con /favorites como dynamic ƒ). 6 NITs no bloqueantes documentados en review.md."
     },
     {
       "name": "schedule_visit_screen",
