@@ -1,9 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Icon } from '@/components/ui';
 import { signOut } from '@/lib/auth/actions';
+import { isLinkActive } from '@/lib/nav/active-link';
 import { cn } from '@/lib/utils/cn';
 import type { NavLink } from './NavLinks';
 import type { AvatarDropdownItem } from './AvatarDropdown';
@@ -39,6 +41,9 @@ export function MobileNavDrawer({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const drawerId = useId();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const search = searchParams.toString();
 
   const close = useCallback(() => {
     setOpen(false);
@@ -194,24 +199,27 @@ export function MobileNavDrawer({
 
             <nav aria-label="Navegación principal" className="flex-1 overflow-y-auto px-2 py-3">
               <ul className="space-y-1">
-                {links.map((link) => (
-                  <li key={link.href + link.label}>
-                    <Link
-                      href={link.href}
-                      aria-current={link.isActive ? 'page' : undefined}
-                      onClick={close}
-                      className={cn(
-                        'block rounded-sm px-3 py-2 text-base font-medium transition-colors',
-                        'focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none',
-                        link.isActive
-                          ? 'bg-primary-soft text-primary'
-                          : 'text-on-surface hover:bg-surface-hover',
-                      )}
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
+                {links.map((link) => {
+                  const active = isLinkActive(pathname, search, link.href);
+                  return (
+                    <li key={link.href + link.label}>
+                      <Link
+                        href={link.href}
+                        aria-current={active ? 'page' : undefined}
+                        onClick={close}
+                        className={cn(
+                          'block rounded-sm px-3 py-2 text-base font-medium transition-colors',
+                          'focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none',
+                          active
+                            ? 'bg-primary-soft text-primary'
+                            : 'text-on-surface hover:bg-surface-hover',
+                        )}
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
 
               {dropdownItems.length > 0 && (

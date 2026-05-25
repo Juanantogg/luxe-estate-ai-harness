@@ -12,7 +12,10 @@ import type { Database } from '@/types/database';
 export async function updateSession(request: NextRequest) {
   // Inyectamos `x-pathname` en los headers del request para que los
   // Server Components puedan leer el pathname actual vía `await headers()`.
-  // Esto evita tener que envolver links del TopNav en un Client wrapper.
+  // Esto evita envolver links del TopNav en un Client wrapper.
+  // Nota: el TopNav ya no lo usa (NavLinks/MobileNavDrawer leen path y
+  // searchParams con hooks), pero el header se mantiene por si otros
+  // Server Components lo necesitan en el futuro.
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-pathname', request.nextUrl.pathname);
 

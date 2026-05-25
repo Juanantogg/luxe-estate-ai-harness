@@ -1,4 +1,3 @@
-import { headers } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Icon } from '@/components/ui';
@@ -117,18 +116,6 @@ function buildDropdownItems(role: string, variant: TopNavVariant): AvatarDropdow
   return items;
 }
 
-function isLinkActive(pathname: string, href: string): boolean {
-  // Para el link "/" sólo es activo en la home exacta (para evitar que
-  // siempre se vea activo cuando estamos en `/foo`).
-  if (href === '/') return pathname === '/';
-
-  // Match exacto o prefijo seguido de `/` o `?`.
-  if (pathname === href) return true;
-  const [pathHref] = href.split('?');
-  if (!pathHref || pathHref === '/') return false;
-  return pathname.startsWith(`${pathHref}/`);
-}
-
 // Clases helper que replican Button variants para los CTAs anónimos.
 // No se introduce un primitivo nuevo (`buttonClasses`) porque solo se usa
 // aquí; si crece, se promueve a helper compartido.
@@ -162,10 +149,6 @@ export async function TopNav({ variant, session: passedSession }: TopNavProps) {
   const user = session?.user ?? null;
   const role = profile?.role ?? 'user';
 
-  // Detectar pathname desde el header inyectado por el middleware.
-  const requestHeaders = await headers();
-  const pathname = requestHeaders.get('x-pathname') ?? '/';
-
   // Unread count de notificaciones. Solo se consulta si hay sesión —
   // sin user el filtro `recipient_id` no tiene sentido y dispararía
   // queries inútiles (ver § 18 R10 del spec).
@@ -186,10 +169,11 @@ export async function TopNav({ variant, session: passedSession }: TopNavProps) {
     }
   }
 
-  const links: NavLink[] = config.links.map((link) => ({
-    ...link,
-    isActive: isLinkActive(pathname, link.href),
-  }));
+  // Los links se pasan plain (sin isActive precomputado). NavLinks y
+  // MobileNavDrawer son Client Components que calculan `isActive` con
+  // usePathname + useSearchParams; el TopNav vive en un layout y los
+  // layouts no re-renderean al cambiar searchParams.
+  const links: NavLink[] = config.links.map((link) => ({ ...link }));
 
   const dropdownItems = user ? buildDropdownItems(role, variant) : [];
   const displayName = user

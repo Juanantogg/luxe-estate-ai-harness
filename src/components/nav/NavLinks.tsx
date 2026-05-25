@@ -1,11 +1,13 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { isLinkActive } from '@/lib/nav/active-link';
 import { cn } from '@/lib/utils/cn';
 
 export interface NavLink {
   href: string;
   label: string;
-  /** Si está activo, recibe `aria-current="page"` y estilos resaltados. */
-  isActive: boolean;
 }
 
 export interface NavLinksProps {
@@ -18,8 +20,16 @@ export interface NavLinksProps {
 /**
  * Lista horizontal de links principales del TopNav (desktop, md+).
  * En mobile el TopNav los oculta y los re-renderiza el `MobileNavDrawer`.
+ *
+ * Client Component: calcula `isActive` con `usePathname` + `useSearchParams`
+ * porque el TopNav vive en un layout y los layouts no re-renderean al
+ * cambiar searchParams.
  */
 export function NavLinks({ links, variant, className }: NavLinksProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const search = searchParams.toString();
+
   // Variante "app" usa subrayado animado en hover; variantes
   // "dashboard" y "admin" usan un border-b-2 transparente (matching mockups).
   const useBorderUnderline = variant !== 'app';
@@ -27,6 +37,7 @@ export function NavLinks({ links, variant, className }: NavLinksProps) {
   return (
     <ul className={cn('hidden items-center md:flex md:gap-8', className)}>
       {links.map((link) => {
+        const active = isLinkActive(pathname, search, link.href);
         const baseClasses =
           'text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm';
 
@@ -42,8 +53,8 @@ export function NavLinks({ links, variant, className }: NavLinksProps) {
           <li key={link.href + link.label}>
             <Link
               href={link.href}
-              aria-current={link.isActive ? 'page' : undefined}
-              className={cn(baseClasses, link.isActive ? activeClasses : inactiveClasses)}
+              aria-current={active ? 'page' : undefined}
+              className={cn(baseClasses, active ? activeClasses : inactiveClasses)}
             >
               {link.label}
             </Link>

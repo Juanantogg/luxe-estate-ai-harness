@@ -131,6 +131,34 @@ Se ampliará en Fase 2 con neutrales y semánticos derivados de `docs/designs/`.
 - **`TopNav` variant `app`**: soporta `session === null` con CTAs
   "Iniciar sesión" / "Registrarse" en lugar del avatar dropdown. Variants
   `dashboard` y `admin` siguen exigiendo sesión (redirigen si falta).
+- **Active link detection en `TopNav`**: `NavLinks` y `MobileNavDrawer`
+  son Client Components que usan `usePathname` + `useSearchParams` y el
+  helper `isLinkActive(pathname, search, href)` (en `src/lib/nav/active-link.ts`)
+  para resaltar el link activo. **No usar `x-pathname` desde el TopNav**:
+  el TopNav vive en `(app)/layout.tsx` y los layouts NO se re-renderean
+  al cambiar searchParams en Next 16, así que un cálculo server-side
+  quedaría desfasado al togglear entre "Comprar" (`/`) y "Rentar"
+  (`/?listing=rent`) vía SPA navigation. El helper compara también el
+  query (`listing`) porque path solo no distingue ambos links.
+
+### Helpers RLS de Supabase (`is_admin`, `is_agent_or_above`, `current_user_role`)
+- **Tienen que ser `EXECUTE`-ables por el rol `authenticated`** porque las
+  policies RLS se evalúan con el rol de la sesión, no con `service_role`.
+  Si están solo en `service_role`, cualquier query autenticada que toque
+  una tabla con policy `... OR is_admin()` falla con
+  `42501 permission denied for function is_admin`.
+- **Migración 0011 cometió este error** (revocó EXECUTE de `authenticated`
+  asumiendo que solo se invocan vía RPC). **Migración 0015 lo revierte**
+  otorgando EXECUTE solo a `authenticated` (no a `anon` — ninguna policy
+  de anon usa estas helpers).
+- **Trade-off aceptado**: el advisor de seguridad emite
+  `authenticated_security_definer_function_executable` WARN porque ahora
+  las helpers son invocables vía `/rest/v1/rpc/<name>`. Es aceptable:
+  `is_admin()` y compañía solo leen `auth.uid()` y devuelven booleano /
+  string del rol, info no sensible (cualquier user puede leer su propio
+  rol desde `profiles`). Si en el futuro se quiere silenciar el WARN, el
+  fix limpio es convertirlas a `SECURITY INVOKER STABLE` reescribiendo el
+  cuerpo, no volver a revocar EXECUTE.
 
 ### Aprobación humana opt-in por feature (`requires_approval`)
 - Las features en `feature_list.json` pueden marcarse con `requires_approval:
