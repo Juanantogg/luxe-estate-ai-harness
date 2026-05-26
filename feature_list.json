@@ -226,8 +226,8 @@
         "Tab Settings: input email (readonly por ahora), toggle 'Alertas de nuevas propiedades' (placeholder, sin lógica)",
         "Upload de avatar: Server Action sube a Storage bucket avatars/{user_id}/avatar.jpg y actualiza profile.avatar_url"
       ],
-      "status": "pending",
-      "notes": "Mockup en docs/designs/user_profile_screen/. El campo 'Sold' en el mockup es para agentes, no users — pero el mockup muestra '1 Sold' para Elena (que es user). Decisión: ocultar el counter Sold si role=user."
+      "status": "done",
+      "notes": "Mockup en docs/designs/user_profile_screen/. El campo 'Sold' en el mockup es para agentes, no users — pero el mockup muestra '1 Sold' para Elena (que es user). Decisión: ocultar el counter Sold si role=user.\n\nDecisiones cerradas con el humano antes del designer (2026-05-25): (1) counter Sold oculto cuando role=user (header pasa de 3 a 2 stats); (2) tab Visitas divide en 'Próximas' (status pending/confirmed/rescheduled con scheduled_at > now) y 'Pasadas' (resto) en secciones, ordenadas desc dentro de cada una; (3) Reschedule → navega a /property/[id]/schedule?reschedule=<visit_id> reutilizando schedule_visit_screen (soporte real del query param queda como deuda — riesgo de visita duplicada aceptado); (4) avatar upload completo: Server Action a avatars/{user_id}/avatar.<ext>, update profile.avatar_url, permite eliminar, límite 2MB, JPG/PNG/WEBP; (5) botón 'Cambiar' email pintado disabled con tooltip — flujo real se materializa en feature nueva 'change_email_flow' agregada al backlog; (6) stat 'Visitas' del header muestra count total.\n\nSpec aprobado, implementer entregó 13 archivos sin desviaciones del spec, reviewer APPROVED WITH NITS 2026-05-25. NITs 1 y 5 aplicados pre-commit (quitado prop role muerto de ProfileStats; centralizado parseProfileTab + ProfileTabValue + ProfileTab en módulo neutro src/components/profile/tabs-shared.ts). NIT 6 no aplicado: patrón <Link><Button tabIndex={-1}> ya está establecido en FavoritesEmptyState, mantener consistencia. NITs 2, 3, 4, 7, 8 documentados en review.md (cosméticos, no bloquean).\n\nBug detectado en verificación visual humana post-NIT 5: parseProfileTab vivía en ProfileTabs.tsx (use client) y era invocado desde page.tsx (server) — Next lo marcaba como client reference y fallaba en runtime con 'Attempted to call <fn>() from the server'. Build/lint/type-check NO lo detectan. Fix: movido a tabs-shared.ts (módulo neutro). Lección guardada en memory feedback_use_client_exports.\n\ninit.sh full OK (lint + type-check + build). /profile compila como ƒ dynamic."
     },
     {
       "name": "property_management_dashboard",
@@ -295,6 +295,26 @@
       ],
       "status": "pending",
       "notes": "Mockup en docs/designs/admin_user_directory_cards/. requires_approval por: toca permisos sensibles. Audit log queda fuera del MVP (documentado en data-model.md)."
+    },
+    {
+      "name": "change_email_flow",
+      "title": "Flujo de cambio de email del usuario",
+      "block": "1_user_flow",
+      "depends_on": ["user_profile_screen", "auth_layer"],
+      "requires_approval": true,
+      "description": "Habilitar el botón 'Cambiar' que en user_profile_screen queda disabled. Flujo: modal/form para nuevo email + password de confirmación → Server Action que llama a supabase.auth.updateUser({ email }) → Supabase envía link de confirmación al email nuevo → route handler en /auth/email-change confirma el token. Mientras tanto el email viejo sigue activo. Validación con zod, manejo de errores (email ya en uso, password incorrecto), copy claro al user explicando que debe confirmar el cambio.",
+      "acceptance": [
+        "Botón 'Cambiar' en /profile?tab=settings deja de estar disabled",
+        "Modal o panel con form: nuevo email + password actual para confirmar identidad",
+        "Server Action changeEmail(formData) en src/lib/profile/actions.ts: valida zod, re-autentica con password, llama supabase.auth.updateUser({ email })",
+        "Route handler src/app/auth/email-change/route.ts maneja el code exchange del email nuevo y redirige a /profile?tab=settings&email_changed=1 con flash toast",
+        "Errores devueltos en español sin exponer detalles internos (email_in_use, invalid_password, etc.)",
+        "Email viejo permanece activo hasta que el user clickea el link del email nuevo (comportamiento default de Supabase)",
+        "Copy explícito en el modal: 'Te enviaremos un link de confirmación al email nuevo. Hasta que lo confirmes, tu email actual seguirá activo.'",
+        "Tras submit exitoso: cerrar modal, mostrar mensaje 'Revisá tu correo nuevo (X) para confirmar el cambio.' sin tocar profile.email todavía"
+      ],
+      "status": "pending",
+      "notes": "Surge de decisión sesión 2026-05-25 sobre user_profile_screen: en lugar de omitir el botón 'Cambiar', se deja disabled con tooltip y se materializa esta feature aparte para implementar el flujo completo. requires_approval por: toca auth, hay race condition entre email viejo y nuevo, y necesita route handler nuevo."
     },
     {
       "name": "notifications_dropdown",
