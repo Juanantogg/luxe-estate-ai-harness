@@ -1,4 +1,11 @@
-export { formatPrice, formatArea, estimateMonthlyPayment } from './format';
+export {
+  formatPrice,
+  formatArea,
+  estimateMonthlyPayment,
+  getStatusBadgeProps,
+  type ListingStatusForBadge,
+  type StatusBadgeProps,
+} from './format';
 export {
   deriveBadge,
   deriveListingBadge,
@@ -25,4 +32,13 @@ export {
   type NewInMarketResult,
 } from './queries';
 export { AMENITY_LABEL_ES, AMENITY_ICON, type AmenityKey } from './amenities';
-export { toggleFavorite, type ToggleFavoriteResult } from './actions';
+export {
+  toggleFavorite,
+  archiveProperty,
+  restoreProperty,
+  type ToggleFavoriteResult,
+  type ArchivePropertyResult,
+  type ArchivePropertyErrorCode,
+  type RestorePropertyResult,
+  type RestorePropertyErrorCode,
+} from './actions';

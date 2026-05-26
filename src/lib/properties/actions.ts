@@ -140,3 +140,214 @@ export async function getMatchingPropertiesCount(filters: Filters): Promise<{ co
   }
   return { count: count ?? 0 };
 }
+
+// ============================================================
+// Archive / Restore (feature property_management_dashboard)
+// ============================================================
+
+const idOnlySchema = z.object({ id: z.string().uuid() });
+
+export type ArchivePropertyErrorCode =
+  | 'unauthenticated'
+  | 'forbidden'
+  | 'not_found'
+  | 'invalid'
+  | 'pending_visits'
+  | 'server';
+
+export type ArchivePropertyResult =
+  | { ok: true }
+  | { ok: false; error: { code: ArchivePropertyErrorCode; message: string } };
+
+/**
+ * Server Action `archiveProperty` — soft-delete que setea
+ * `listing_status='archived'`.
+ *
+ * Guards (spec §"Server Actions > archiveProperty"):
+ *  1. zod (id uuid).
+ *  2. Sesión autenticada.
+ *  3. Property existe.
+ *  4. Caller es admin o owner.
+ *  5. **Server-side guard de visits pendientes** (defense-in-depth): si la
+ *     property tiene visits futuras con `status IN
+ *     ('pending','confirmed','rescheduled')`, devuelve `pending_visits`
+ *     y NO archiva. El UI ya impide llegar acá; este check protege contra
+ *     clientes que se salteen el dialog.
+ *  6. UPDATE listing_status = 'archived'.
+ *  7. revalidatePath dashboard + home + detalle.
+ */
+export async function archiveProperty(input: { id: string }): Promise<ArchivePropertyResult> {
+  const parsed = idOnlySchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: { code: 'invalid', message: 'ID inválido.' } };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return {
+      ok: false,
+      error: { code: 'unauthenticated', message: 'Inicia sesión para continuar.' },
+    };
+  }
+
+  const { data: property, error: propertyError } = await supabase
+    .from('properties')
+    .select('owner_id, listing_status')
+    .eq('id', parsed.data.id)
+    .maybeSingle();
+  if (propertyError) {
+    console.warn('[archiveProperty] property query failed', propertyError);
+    return { ok: false, error: { code: 'server', message: 'No se pudo archivar.' } };
+  }
+  if (!property) {
+    return { ok: false, error: { code: 'not_found', message: 'Propiedad no encontrada.' } };
+  }
+
+  // Role check (defense-in-depth). RLS también protege.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+  const isAdmin = profile?.role === 'admin';
+  const isOwner = property.owner_id === user.id;
+  if (!isAdmin && !isOwner) {
+    return {
+      ok: false,
+      error: { code: 'forbidden', message: 'No tienes permiso para archivar esta propiedad.' },
+    };
+  }
+
+  // Guard de visits pendientes futuras.
+  const nowIso = new Date().toISOString();
+  const { count: pendingCount, error: visitsCountError } = await supabase
+    .from('visits')
+    .select('id', { count: 'exact', head: true })
+    .eq('property_id', parsed.data.id)
+    .in('status', ['pending', 'confirmed', 'rescheduled'])
+    .gt('scheduled_at', nowIso);
+  if (visitsCountError) {
+    console.warn('[archiveProperty] visits count failed', visitsCountError);
+    return { ok: false, error: { code: 'server', message: 'No se pudo archivar.' } };
+  }
+  if ((pendingCount ?? 0) > 0) {
+    return {
+      ok: false,
+      error: {
+        code: 'pending_visits',
+        message: 'Cancela las visitas pendientes antes de archivar.',
+      },
+    };
+  }
+
+  const { error: updateError } = await supabase
+    .from('properties')
+    .update({ listing_status: 'archived' })
+    .eq('id', parsed.data.id);
+  if (updateError) {
+    console.warn('[archiveProperty] update failed', updateError);
+    return { ok: false, error: { code: 'server', message: 'No se pudo archivar.' } };
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath('/');
+  revalidatePath(`/property/${parsed.data.id}`);
+  return { ok: true };
+}
+
+export type RestorePropertyErrorCode =
+  | 'unauthenticated'
+  | 'forbidden'
+  | 'not_found'
+  | 'invalid'
+  | 'not_archived'
+  | 'server';
+
+export type RestorePropertyResult =
+  | { ok: true }
+  | { ok: false; error: { code: RestorePropertyErrorCode; message: string } };
+
+/**
+ * Server Action `restoreProperty` — invierte el soft-delete de
+ * `archiveProperty` seteando `listing_status='active'`.
+ *
+ * No guardamos el status previo (decisión R3/E2): el 99% de las veces se
+ * archivó algo activo, y si quería quedar en draft el agent edita después.
+ *
+ * Guards:
+ *  1. zod (id uuid).
+ *  2. Sesión autenticada.
+ *  3. Property existe.
+ *  4. Caller es admin o owner.
+ *  5. La property está actualmente `archived` (rechazo de clicks duplicados).
+ *  6. UPDATE listing_status = 'active'.
+ *  7. revalidatePath dashboard + home + detalle.
+ */
+export async function restoreProperty(input: { id: string }): Promise<RestorePropertyResult> {
+  const parsed = idOnlySchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: { code: 'invalid', message: 'ID inválido.' } };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return {
+      ok: false,
+      error: { code: 'unauthenticated', message: 'Inicia sesión para continuar.' },
+    };
+  }
+
+  const { data: property, error: propertyError } = await supabase
+    .from('properties')
+    .select('owner_id, listing_status')
+    .eq('id', parsed.data.id)
+    .maybeSingle();
+  if (propertyError) {
+    console.warn('[restoreProperty] property query failed', propertyError);
+    return { ok: false, error: { code: 'server', message: 'No se pudo restaurar.' } };
+  }
+  if (!property) {
+    return { ok: false, error: { code: 'not_found', message: 'Propiedad no encontrada.' } };
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+  const isAdmin = profile?.role === 'admin';
+  const isOwner = property.owner_id === user.id;
+  if (!isAdmin && !isOwner) {
+    return {
+      ok: false,
+      error: { code: 'forbidden', message: 'No tienes permiso para restaurar esta propiedad.' },
+    };
+  }
+
+  if (property.listing_status !== 'archived') {
+    return {
+      ok: false,
+      error: { code: 'not_archived', message: 'La propiedad no está archivada.' },
+    };
+  }
+
+  const { error: updateError } = await supabase
+    .from('properties')
+    .update({ listing_status: 'active' })
+    .eq('id', parsed.data.id);
+  if (updateError) {
+    console.warn('[restoreProperty] update failed', updateError);
+    return { ok: false, error: { code: 'server', message: 'No se pudo restaurar.' } };
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath('/');
+  revalidatePath(`/property/${parsed.data.id}`);
+  return { ok: true };
+}

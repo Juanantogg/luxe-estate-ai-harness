@@ -43,6 +43,43 @@ export function formatArea(areaSqm: number | null | undefined): string | null {
 }
 
 /**
+ * Mapea un `listing_status` a los props que recibe el primitivo `Badge`
+ * para pintar el estado de una propiedad en el dashboard de gestión.
+ *
+ * Mapeo (spec §"Estado de badges"):
+ * - `active` → success + dot, label "Activa"
+ * - `pending` → warning + dot, label "Pendiente"
+ * - `sold` → neutral + dot, label "Vendida"
+ * - `rented` → neutral + dot, label "Rentada"
+ * - `draft` → neutral + dot, label "Borrador"
+ * - `archived` → neutral + dot, label "Archivada"
+ */
+export type ListingStatusForBadge = 'active' | 'pending' | 'sold' | 'rented' | 'draft' | 'archived';
+
+export interface StatusBadgeProps {
+  variant: 'success' | 'warning' | 'neutral';
+  label: string;
+  withDot: true;
+}
+
+export function getStatusBadgeProps(status: ListingStatusForBadge): StatusBadgeProps {
+  switch (status) {
+    case 'active':
+      return { variant: 'success', label: 'Activa', withDot: true };
+    case 'pending':
+      return { variant: 'warning', label: 'Pendiente', withDot: true };
+    case 'sold':
+      return { variant: 'neutral', label: 'Vendida', withDot: true };
+    case 'rented':
+      return { variant: 'neutral', label: 'Rentada', withDot: true };
+    case 'draft':
+      return { variant: 'neutral', label: 'Borrador', withDot: true };
+    case 'archived':
+      return { variant: 'neutral', label: 'Archivada', withDot: true };
+  }
+}
+
+/**
  * Estima el pago mensual de una hipoteca con cuota fija (amortización
  * francesa). NO es asesoramiento financiero — sólo un placeholder visual
  * para la `MortgageCard` del detalle de propiedad ("Desde $X/mes con 20%

@@ -171,3 +171,240 @@ export async function scheduleVisit(input: ScheduleVisitInput): Promise<Schedule
   revalidatePath('/profile');
   return { ok: true, visitId: inserted.id };
 }
+
+// ============================================================
+// cancelVisit (feature property_management_dashboard)
+// ============================================================
+
+const cancelVisitSchema = z.object({ visitId: z.string().uuid() });
+
+export type CancelVisitErrorCode =
+  | 'unauthenticated'
+  | 'forbidden'
+  | 'not_found'
+  | 'invalid'
+  | 'already_cancelled'
+  | 'past_visit'
+  | 'server';
+
+export type CancelVisitResult =
+  | { ok: true }
+  | { ok: false; error: { code: CancelVisitErrorCode; message: string } };
+
+/**
+ * Server Action `cancelVisit` — el agent (o admin) cancela una visita
+ * pendiente. Se usa desde el dialog "Archivar" cuando hay visits
+ * bloqueando.
+ *
+ * Guards (spec §"Server Actions > cancelVisit"):
+ *  1. zod (visitId uuid).
+ *  2. Sesión autenticada.
+ *  3. Visit existe.
+ *  4. Caller es admin o `agent_id === user.id` (el agent_id siempre es el
+ *     owner de la property por el trigger `validate_visit_agent`).
+ *  5. Status actual en (pending|confirmed|rescheduled). Si no →
+ *     `already_cancelled`.
+ *  6. `scheduled_at > now()`. Si no → `past_visit`.
+ *  7. UPDATE status='cancelled'. El trigger
+ *     `notify_user_on_visit_cancel` (mig 0018) crea la notification al
+ *     user afectado.
+ *  8. revalidatePath dashboard + profile.
+ *
+ * **Decisión sobre status**: el enum `visit_status` no tiene
+ * `cancelled_by_agent`. Usamos `cancelled` y distinguimos "quién canceló"
+ * vía notification con copy específico (mig 0018).
+ */
+export async function cancelVisit(input: { visitId: string }): Promise<CancelVisitResult> {
+  const parsed = cancelVisitSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: { code: 'invalid', message: 'ID inválido.' } };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return {
+      ok: false,
+      error: { code: 'unauthenticated', message: 'Inicia sesión para continuar.' },
+    };
+  }
+
+  const { data: visit, error: visitError } = await supabase
+    .from('visits')
+    .select('id, agent_id, user_id, status, scheduled_at')
+    .eq('id', parsed.data.visitId)
+    .maybeSingle();
+  if (visitError) {
+    console.warn('[cancelVisit] visit query failed', visitError);
+    return { ok: false, error: { code: 'server', message: 'No se pudo cancelar la visita.' } };
+  }
+  if (!visit) {
+    return { ok: false, error: { code: 'not_found', message: 'Visita no encontrada.' } };
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+  const isAdmin = profile?.role === 'admin';
+  const isAgent = visit.agent_id === user.id;
+  if (!isAdmin && !isAgent) {
+    return {
+      ok: false,
+      error: { code: 'forbidden', message: 'No tienes permiso para cancelar esta visita.' },
+    };
+  }
+
+  if (
+    !(['pending', 'confirmed', 'rescheduled'] as const).includes(
+      visit.status as 'pending' | 'confirmed' | 'rescheduled',
+    )
+  ) {
+    return {
+      ok: false,
+      error: { code: 'already_cancelled', message: 'La visita ya no está activa.' },
+    };
+  }
+
+  if (new Date(visit.scheduled_at).getTime() <= Date.now()) {
+    return {
+      ok: false,
+      error: { code: 'past_visit', message: 'No se pueden cancelar visitas pasadas.' },
+    };
+  }
+
+  const { error: updateError } = await supabase
+    .from('visits')
+    .update({ status: 'cancelled' })
+    .eq('id', parsed.data.visitId);
+  if (updateError) {
+    console.warn('[cancelVisit] update failed', updateError);
+    return { ok: false, error: { code: 'server', message: 'No se pudo cancelar la visita.' } };
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath('/profile');
+  return { ok: true };
+}
+
+// ============================================================
+// getPendingVisitsForArchive (feature property_management_dashboard)
+// ============================================================
+
+const pendingVisitsSchema = z.object({ propertyId: z.string().uuid() });
+
+export interface PendingVisitForDialog {
+  id: string;
+  scheduledAt: string;
+  propertyTimezone: string;
+  userDisplayName: string;
+}
+
+export type GetPendingVisitsErrorCode = 'unauthenticated' | 'forbidden' | 'invalid' | 'server';
+
+export type GetPendingVisitsResult =
+  | { ok: true; visits: PendingVisitForDialog[] }
+  | {
+      ok: false;
+      error: { code: GetPendingVisitsErrorCode; message: string };
+    };
+
+/**
+ * Query auxiliar del delete-dialog. La empaquetamos como Server Action
+ * (`'use server'`) en lugar de exponer un endpoint REST porque el cliente
+ * la invoca sobre la cookie de sesión y nos apoyamos en RLS de `visits`
+ * (`visits_select_participant_or_admin`).
+ *
+ * Filtra a visits con `status IN ('pending','confirmed','rescheduled')` y
+ * `scheduled_at > now()` para la property dada. Devuelve además la timezone
+ * de la property y el display name del user que agendó (full_name del
+ * profile, fallback a "Usuario sin nombre").
+ */
+export async function getPendingVisitsForArchive(input: {
+  propertyId: string;
+}): Promise<GetPendingVisitsResult> {
+  const parsed = pendingVisitsSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: { code: 'invalid', message: 'ID inválido.' } };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return {
+      ok: false,
+      error: { code: 'unauthenticated', message: 'Inicia sesión para continuar.' },
+    };
+  }
+
+  // Comprobamos que el caller sea owner o admin antes de exponer los
+  // datos (defense-in-depth — RLS ya cubre el caso para los usuarios
+  // normales, pero un agent que no sea owner no debería ver visits de
+  // otra property).
+  const { data: property, error: propertyError } = await supabase
+    .from('properties')
+    .select('owner_id, timezone')
+    .eq('id', parsed.data.propertyId)
+    .maybeSingle();
+  if (propertyError) {
+    console.warn('[getPendingVisitsForArchive] property query failed', propertyError);
+    return { ok: false, error: { code: 'server', message: 'No se pudieron leer las visitas.' } };
+  }
+  if (!property) {
+    return { ok: false, error: { code: 'forbidden', message: 'No tienes acceso.' } };
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+  const isAdmin = profile?.role === 'admin';
+  const isOwner = property.owner_id === user.id;
+  if (!isAdmin && !isOwner) {
+    return { ok: false, error: { code: 'forbidden', message: 'No tienes acceso.' } };
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('visits')
+    .select(
+      `
+      id, scheduled_at,
+      visitor:profiles!visits_user_id_fkey ( full_name )
+    `,
+    )
+    .eq('property_id', parsed.data.propertyId)
+    .in('status', ['pending', 'confirmed', 'rescheduled'])
+    .gt('scheduled_at', nowIso)
+    .order('scheduled_at', { ascending: true });
+
+  if (error) {
+    console.warn('[getPendingVisitsForArchive] visits query failed', error);
+    return { ok: false, error: { code: 'server', message: 'No se pudieron leer las visitas.' } };
+  }
+
+  type RawVisitRow = {
+    id: string;
+    scheduled_at: string;
+    visitor: { full_name: string | null } | Array<{ full_name: string | null }> | null;
+  };
+
+  const visits = (data as unknown as RawVisitRow[]).map((row) => {
+    const visitor = Array.isArray(row.visitor) ? (row.visitor[0] ?? null) : (row.visitor ?? null);
+    const name = visitor?.full_name?.trim();
+    return {
+      id: row.id,
+      scheduledAt: row.scheduled_at,
+      propertyTimezone: property.timezone ?? 'America/Mexico_City',
+      userDisplayName: name && name.length > 0 ? name : 'Usuario sin nombre',
+    };
+  });
+
+  return { ok: true, visits };
+}

@@ -1,5 +1,14 @@
-export { scheduleVisit } from './actions';
-export type { ScheduleVisitResult, ScheduleVisitInput, ScheduleVisitErrorCode } from './actions';
+export { scheduleVisit, cancelVisit, getPendingVisitsForArchive } from './actions';
+export type {
+  ScheduleVisitResult,
+  ScheduleVisitInput,
+  ScheduleVisitErrorCode,
+  CancelVisitResult,
+  CancelVisitErrorCode,
+  GetPendingVisitsResult,
+  GetPendingVisitsErrorCode,
+  PendingVisitForDialog,
+} from './actions';
 export { getAgentOccupiedSlots } from './queries';
 export {
   generateDaySlots,
