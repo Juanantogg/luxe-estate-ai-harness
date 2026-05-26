@@ -7,6 +7,9 @@ export type { IconButtonProps, IconButtonVariant, IconButtonSize } from './IconB
 export { Input } from './Input';
 export type { InputProps, InputSize } from './Input';
 
+export { Textarea } from './Textarea';
+export type { TextareaProps } from './Textarea';
+
 export { Chip } from './Chip';
 export type { ChipProps, ChipVariant, ChipSize } from './Chip';
 

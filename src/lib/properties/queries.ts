@@ -516,3 +516,143 @@ export async function getPropertyDetail(
 
   return toPropertyDetail(row, owner);
 }
+
+// ============================================================
+// Edición de propiedad (feature add_edit_property_form)
+// ============================================================
+
+export interface PropertyForEditImage {
+  id: string;
+  storage_path: string;
+  alt_text: string | null;
+  is_main: boolean;
+  position: number;
+}
+
+export interface PropertyForEdit {
+  id: string;
+  owner_id: string;
+  title: string;
+  description: string | null;
+  price: number;
+  listing_type: ListingType;
+  listing_status: ListingStatus;
+  property_type: PropertyType;
+  address_line: string;
+  city: string;
+  state: string | null;
+  country: string | null;
+  postal_code: string | null;
+  bedrooms: number;
+  bathrooms: number;
+  area_sqm: number | null;
+  parking_spaces: number | null;
+  year_built: number | null;
+  published_at: string | null;
+  amenities: AmenityKey[];
+  images: PropertyForEditImage[];
+}
+
+interface RawEditRow {
+  id: string;
+  owner_id: string;
+  title: string;
+  description: string | null;
+  price: number | string;
+  listing_type: ListingType;
+  listing_status: ListingStatus;
+  property_type: PropertyType;
+  address_line: string;
+  city: string;
+  state: string | null;
+  country: string | null;
+  postal_code: string | null;
+  bedrooms: number;
+  bathrooms: number | string;
+  area_sqm: number | string | null;
+  parking_spaces: number | null;
+  year_built: number | null;
+  published_at: string | null;
+  property_images: Array<{
+    id: string;
+    storage_path: string;
+    alt_text: string | null;
+    is_main: boolean;
+    position: number | null;
+  }>;
+  property_amenities: Array<{ amenity: AmenityKey }>;
+}
+
+const EDIT_SELECT_COLUMNS = `
+  id, owner_id, title, description, price,
+  listing_type, listing_status, property_type,
+  address_line, city, state, country, postal_code,
+  bedrooms, bathrooms, area_sqm, parking_spaces, year_built,
+  published_at,
+  property_images ( id, storage_path, alt_text, is_main, position ),
+  property_amenities ( amenity )
+`;
+
+/**
+ * Carga una propiedad con sus imágenes y amenities para pre-rellenar el form
+ * de edición. RLS asegura que solo el owner o admin la verán; el caller
+ * además valida ownership y devuelve `notFound()` cuando no aplica.
+ *
+ * Devuelve `null` si la fila no existe (o RLS la oculta). El order de
+ * `images` mantiene `position` (main primero como cortesía visual, igual
+ * que en `getPropertyDetail`).
+ */
+export async function getPropertyForEdit(
+  supabase: SupabaseDb,
+  id: string,
+): Promise<PropertyForEdit | null> {
+  const { data, error } = await supabase
+    .from('properties')
+    .select(EDIT_SELECT_COLUMNS)
+    .eq('id', id)
+    .maybeSingle();
+  if (error) {
+    console.warn('[getPropertyForEdit] query failed', error);
+    return null;
+  }
+  if (!data) return null;
+
+  const row = data as unknown as RawEditRow;
+
+  const images: PropertyForEditImage[] = [...row.property_images]
+    .map((img) => ({
+      id: img.id,
+      storage_path: img.storage_path,
+      alt_text: img.alt_text,
+      is_main: img.is_main,
+      position: img.position ?? 0,
+    }))
+    .sort((a, b) => {
+      if (a.is_main !== b.is_main) return a.is_main ? -1 : 1;
+      return a.position - b.position;
+    });
+
+  return {
+    id: row.id,
+    owner_id: row.owner_id,
+    title: row.title,
+    description: row.description,
+    price: Number(row.price),
+    listing_type: row.listing_type,
+    listing_status: row.listing_status,
+    property_type: row.property_type,
+    address_line: row.address_line,
+    city: row.city,
+    state: row.state,
+    country: row.country,
+    postal_code: row.postal_code,
+    bedrooms: row.bedrooms,
+    bathrooms: Number(row.bathrooms),
+    area_sqm: row.area_sqm == null ? null : Number(row.area_sqm),
+    parking_spaces: row.parking_spaces,
+    year_built: row.year_built,
+    published_at: row.published_at,
+    amenities: row.property_amenities.map((a) => a.amenity),
+    images,
+  };
+}
