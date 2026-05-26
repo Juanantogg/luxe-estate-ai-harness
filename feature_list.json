@@ -293,8 +293,8 @@
         "Pagination: 20 por página",
         "Status indicator: dot verde (online) / amarillo (away) / gris (inactive) — derivar de last_sign_in_at de auth.users (placeholder simple por ahora: si is_active=true → online)"
       ],
-      "status": "pending",
-      "notes": "Mockup en docs/designs/admin_user_directory_cards/. requires_approval por: toca permisos sensibles. Audit log queda fuera del MVP (documentado en data-model.md)."
+      "status": "done",
+      "notes": "Mockup en docs/designs/admin_user_directory_cards/. requires_approval por: toca permisos sensibles. Audit log queda fuera del MVP (documentado en data-model.md). Spec aprobado 2026-05-26: C1 invite con inviteUserByEmail (service_role), C2 tabs Todos/Usuarios/Agentes/Admins, C3 highlight fila del caller, C4 columna sold_at (mig 0021), R2 revocar sesión al suspender (auth.admin.signOut). Migraciones: 0020 (notif role change) + 0021 (sold_at + trigger + backfill) + 0022 (search_path hardening de properties_sync_sold_at). Reviewer APPROVED 2026-05-26 con 7 NITs no bloqueantes; init.sh full OK (lint + type-check + build). Verificación manual pendiente del humano: (1) smoke test invite end-to-end, (2) smoke test suspend con 2 navegadores, (3) setear SUPABASE_SERVICE_ROLE_KEY en .env.local antes de probar."
     },
     {
       "name": "change_email_flow",

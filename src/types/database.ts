@@ -3,12 +3,14 @@
  *
  * No editar a mano. Para regenerar:
  *   pnpm db:types
- * (que internamente llama al MCP de Supabase generate_typescript_types)
+ *
+ * Última regeneración: 2026-05-26 (mig 0020 + 0021 + 0022).
  */
-
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: '14.5';
   };
@@ -282,6 +284,7 @@ export type Database = {
           property_type: Database['public']['Enums']['property_type'];
           published_at: string | null;
           search_vector: unknown;
+          sold_at: string | null;
           state: string | null;
           timezone: string;
           title: string;
@@ -312,6 +315,7 @@ export type Database = {
           property_type: Database['public']['Enums']['property_type'];
           published_at?: string | null;
           search_vector?: unknown;
+          sold_at?: string | null;
           state?: string | null;
           timezone?: string;
           title: string;
@@ -342,6 +346,7 @@ export type Database = {
           property_type?: Database['public']['Enums']['property_type'];
           published_at?: string | null;
           search_vector?: unknown;
+          sold_at?: string | null;
           state?: string | null;
           timezone?: string;
           title?: string;
@@ -484,7 +489,9 @@ export type Database = {
         ];
       };
     };
-    Views: { [_ in never]: never };
+    Views: {
+      [_ in never]: never;
+    };
     Functions: {
       current_user_role: {
         Args: never;
@@ -492,7 +499,9 @@ export type Database = {
       };
       get_agent_occupied_slots: {
         Args: { agent: string; from_ts: string; to_ts: string };
-        Returns: { scheduled_at: string }[];
+        Returns: {
+          scheduled_at: string;
+        }[];
       };
       is_admin: { Args: never; Returns: boolean };
       is_agent_or_above: { Args: never; Returns: boolean };
@@ -531,7 +540,9 @@ export type Database = {
       user_role: 'user' | 'agent' | 'broker' | 'admin';
       visit_status: 'pending' | 'confirmed' | 'rescheduled' | 'cancelled' | 'completed' | 'no_show';
     };
-    CompositeTypes: { [_ in never]: never };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
   };
 };
 
