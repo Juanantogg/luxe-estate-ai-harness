@@ -216,6 +216,13 @@ El proyecto usa un sistema de orquestación multi-agente:
   + `progress/current.md` como índice de sesión activa. Las carpetas de
   feature se **commitean junto con el código** como evidencia del proceso.
   Solo `progress/current.md` es efímero y está en `.gitignore`.
+- **`progress/smoke-tests.md`** — checklist viva con todas las
+  validaciones manuales pendientes (cosas que `init.sh full` no verifica:
+  browser, email, sesiones múltiples). El **leader** lo mantiene al día:
+  cuando una feature cierra como `done` y tiene smoke test pendiente,
+  agrega su checklist al archivo antes del commit. El **humano** marca
+  `[x]` cuando ejecuta cada test OK. Revisar antes de cerrar sesión para
+  no perder pendientes.
 
 ## Permisos de modificación del harness
 
