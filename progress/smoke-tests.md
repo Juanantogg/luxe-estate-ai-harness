@@ -128,6 +128,22 @@ Spec original tenía 17 pasos end-to-end, diferidos hasta que existiera
 - [ ] `/dev/ui` sección Chips: el primer chip (variant="selected")
       se ve en mosque, no en negro. Tab al chip → focus ring visible.
 
+### `topnav_dead_links_cleanup` (cerrada 2026-05-27)
+
+Matriz de links esperada por variant/sesión:
+
+- [ ] TopNav variant `app` SIN sesión: solo "Comprar" y "Rentar"
+      visibles (sin "Vender" ni "Guardados"). Mobile drawer respeta
+      lo mismo.
+- [ ] TopNav variant `app` CON sesión (elena): "Comprar", "Rentar",
+      "Guardados" (3 links). Sin "Vender".
+- [ ] TopNav variant `dashboard` (marcus o admin): "Dashboard",
+      "Propiedades" (2 links). Sin "Inquilinos" ni "Finanzas".
+- [ ] TopNav variant `admin` (admin@luxe-estate.test): "Dashboard",
+      "Usuarios" (2 links). Sin "Propiedades" ni "Consultas".
+- [ ] Mobile (≤640px): drawer hamburguesa muestra los mismos links
+      filtrados (no aparecen los muertos).
+
 ### `admin_user_directory` (cerrada 2026-05-26)
 
 Verificación manual original más la del fix 0026 de hoy.

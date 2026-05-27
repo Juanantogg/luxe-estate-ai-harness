@@ -25,9 +25,24 @@ export interface TopNavProps {
   session?: { user: User; profile: Profile | null } | null;
 }
 
+/**
+ * Forma extendida de los links dentro de VARIANT_CONFIG. NO se propaga al
+ * Client Component `NavLinks` — los flags `enabled` y `requiresSession`
+ * son de orquestación del config (qué podría renderizarse) y se
+ * resuelven en este Server Component antes de pasar el array final al
+ * cliente (lo que efectivamente se renderiza).
+ */
+type VariantLinkConfig = Omit<NavLink, 'isActive'> & {
+  /** Si false, el link no se renderiza. Se usa para placeholders de
+   *  features futuras que viven en el config para no perder el intent. */
+  enabled?: boolean;
+  /** Si true, el link solo se renderiza cuando hay sesión. */
+  requiresSession?: boolean;
+};
+
 interface VariantConfig {
   /** Sets de links según variante. */
-  links: Array<Omit<NavLink, 'isActive'>>;
+  links: VariantLinkConfig[];
   /** Ruta del logo (típicamente la "home" de cada shell). */
   homeHref: string;
   /** Altura de la nav (mobile + desktop). El HTML usa h-16 en dashboard/admin y h-20 en app. */
@@ -43,8 +58,12 @@ const VARIANT_CONFIG: Record<TopNavVariant, VariantConfig> = {
     links: [
       { href: '/', label: 'Comprar' },
       { href: '/?listing=rent', label: 'Rentar' },
-      { href: '/sell', label: 'Vender' },
-      { href: '/favorites', label: 'Guardados' },
+      // TODO: feature `sell_property_flow` no implementada — la entrada
+      // queda en el config para preservar el intent original; restituir
+      // removiendo `enabled: false` cuando la ruta `/sell` exista.
+      { href: '/sell', label: 'Vender', enabled: false },
+      // /favorites existe pero es ruta privada: solo visible con sesión.
+      { href: '/favorites', label: 'Guardados', requiresSession: true },
     ],
     homeHref: '/',
     heightClass: 'h-16 md:h-20',
@@ -55,8 +74,10 @@ const VARIANT_CONFIG: Record<TopNavVariant, VariantConfig> = {
     links: [
       { href: '/dashboard', label: 'Dashboard' },
       { href: '/dashboard/properties', label: 'Propiedades' },
-      { href: '/dashboard/tenants', label: 'Inquilinos' },
-      { href: '/dashboard/finance', label: 'Finanzas' },
+      // TODO: feature `agent_tenants_directory` no implementada.
+      { href: '/dashboard/tenants', label: 'Inquilinos', enabled: false },
+      // TODO: feature `agent_finance_dashboard` no implementada.
+      { href: '/dashboard/finance', label: 'Finanzas', enabled: false },
     ],
     homeHref: '/dashboard',
     heightClass: 'h-16',
@@ -66,9 +87,11 @@ const VARIANT_CONFIG: Record<TopNavVariant, VariantConfig> = {
   admin: {
     links: [
       { href: '/admin', label: 'Dashboard' },
-      { href: '/admin/properties', label: 'Propiedades' },
+      // TODO: feature `admin_properties_directory` no implementada.
+      { href: '/admin/properties', label: 'Propiedades', enabled: false },
       { href: '/admin/users', label: 'Usuarios' },
-      { href: '/admin/inquiries', label: 'Consultas' },
+      // TODO: feature `admin_inquiries_inbox` no implementada.
+      { href: '/admin/inquiries', label: 'Consultas', enabled: false },
     ],
     homeHref: '/admin',
     heightClass: 'h-16',
@@ -173,7 +196,18 @@ export async function TopNav({ variant, session: passedSession }: TopNavProps) {
   // MobileNavDrawer son Client Components que calculan `isActive` con
   // usePathname + useSearchParams; el TopNav vive en un layout y los
   // layouts no re-renderean al cambiar searchParams.
-  const links: NavLink[] = config.links.map((link) => ({ ...link }));
+  //
+  // Filtrado del config → array final que recibe el cliente:
+  // 1) descarta links con `enabled: false` (placeholders de features
+  //    futuras que viven en el config para preservar el intent).
+  // 2) descarta links con `requiresSession: true` si no hay user.
+  // 3) proyecta a `{ href, label }` para soltar `enabled` /
+  //    `requiresSession` antes de pasar el objeto al cliente: NavLink
+  //    no los espera.
+  const links: NavLink[] = config.links
+    .filter((link) => link.enabled !== false)
+    .filter((link) => !link.requiresSession || Boolean(user))
+    .map((link) => ({ href: link.href, label: link.label }));
 
   const dropdownItems = user ? buildDropdownItems(role, variant) : [];
   const displayName = user
