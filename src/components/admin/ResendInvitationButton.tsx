@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Button } from '@/components/ui';
+import { Button, Toast } from '@/components/ui';
 import { resendInvitation } from '@/lib/admin/actions';
 
 export interface ResendInvitationButtonProps {
@@ -17,11 +17,10 @@ type Feedback =
 
 /**
  * Botón "Reenviar invitación" para filas pending con last_invited_at
- * antiguo. Llama a la Server Action `resendInvitation`. Sigue el patrón
- * de feedback inline ya usado en InviteUserDialog (success/error como
- * <p> bajo el control) porque no hay sistema global de toast en el repo
- * todavía. El feedback se auto-limpia tras 4s en éxito y persiste hasta
- * próximo clic en error.
+ * antiguo. Llama a la Server Action `resendInvitation` y muestra el
+ * resultado mediante el primitivo `Toast` flotante: variant `success`
+ * cuando ok (auto-dismiss 4s), variant `danger` cuando error (sin
+ * auto-dismiss para que el admin pueda leer el mensaje).
  *
  * Decisión: `useTransition` (no `useState<isPending>` manual). Razones:
  *  - Es un Server Action call — useTransition lo wrappea naturalmente.
@@ -46,38 +45,41 @@ export function ResendInvitationButton({
         return;
       }
       setFeedback({ kind: 'success', email: result.email });
-      // Auto-limpia tras 4s para que la fila vuelva a su estado
-      // "esperando aceptación" visualmente.
-      setTimeout(() => setFeedback({ kind: 'idle' }), 4000);
     });
   }
 
+  const toastMessage =
+    feedback.kind === 'success'
+      ? `Invitación reenviada a ${userDisplayName}.`
+      : feedback.kind === 'error'
+        ? feedback.message
+        : '';
+
   return (
-    <div className="flex flex-col items-stretch gap-1.5 md:items-end">
-      <Button
-        variant="secondary"
-        size="sm"
-        leadingIcon="send"
-        loading={isPending}
-        disabled={isPending || feedback.kind === 'success'}
-        aria-label={`Reenviar invitación a ${userEmail}`}
-        aria-busy={isPending}
-        onClick={handleClick}
-        className="md:w-auto"
-        fullWidth
-      >
-        Reenviar invitación
-      </Button>
-      {feedback.kind === 'success' && (
-        <p className="text-xs text-primary md:text-right" role="status">
-          Invitación reenviada a <span className="font-medium">{userDisplayName}</span>.
-        </p>
-      )}
-      {feedback.kind === 'error' && (
-        <p className="text-xs text-danger md:text-right" role="alert">
-          {feedback.message}
-        </p>
-      )}
-    </div>
+    <>
+      <div className="flex flex-col items-stretch md:items-end">
+        <Button
+          variant="secondary"
+          size="sm"
+          leadingIcon="send"
+          loading={isPending}
+          disabled={isPending || feedback.kind === 'success'}
+          aria-label={`Reenviar invitación a ${userEmail}`}
+          aria-busy={isPending}
+          onClick={handleClick}
+          className="md:w-auto"
+          fullWidth
+        >
+          Reenviar invitación
+        </Button>
+      </div>
+      <Toast
+        open={feedback.kind !== 'idle'}
+        onClose={() => setFeedback({ kind: 'idle' })}
+        variant={feedback.kind === 'error' ? 'danger' : 'success'}
+        message={toastMessage}
+        autoDismissMs={feedback.kind === 'error' ? 0 : 4000}
+      />
+    </>
   );
 }

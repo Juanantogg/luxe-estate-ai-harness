@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { Avatar, Badge, Button, Card, Chip, Icon, IconButton, Input } from '@/components/ui';
+import { ToastShowcase } from './ToastShowcase';
 
 export const metadata = { title: 'UI Primitivas — Dev' };
 
@@ -325,6 +326,12 @@ export default function DevUiPage() {
             </p>
           </Card>
         </MatrixRow>
+      </section>
+
+      {/* Toast */}
+      <section className="space-y-6">
+        <SectionHeader title="Toast" file="src/components/ui/Toast.tsx" />
+        <ToastShowcase />
       </section>
 
       {/* Icon */}

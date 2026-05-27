@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { PropertyCard } from '@/components/property';
 import { ListingTypeToggle } from '@/components/property';
+import { AuthErrorHashListener } from '@/components/auth';
 import {
   EmptyPropertiesState,
   HeroSearch,
@@ -187,6 +188,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </>
         )}
       </section>
+
+      <AuthErrorHashListener />
     </div>
   );
 }

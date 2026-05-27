@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
-import { Button, Icon } from '@/components/ui';
+import { Button, Toast } from '@/components/ui';
 import { scheduleVisit } from '@/lib/visits/actions';
 import {
   firstOfMonthIso,
@@ -213,16 +213,14 @@ export function VisitScheduler({
         </Button>
       </div>
 
-      {toastVisible && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-20 left-1/2 z-50 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-success-soft px-6 py-3 text-success shadow-soft"
-        >
-          <Icon name="check_circle" size="sm" />
-          <span className="text-sm font-medium">Visita confirmada.</span>
-        </div>
-      )}
+      <Toast
+        open={toastVisible}
+        onClose={() => setToastVisible(false)}
+        variant="success"
+        message="Visita confirmada."
+        autoDismissMs={0}
+        dismissible={false}
+      />
     </form>
   );
 }

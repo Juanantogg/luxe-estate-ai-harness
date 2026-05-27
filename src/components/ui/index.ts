@@ -24,3 +24,6 @@ export type { CardProps, CardVariant, CardPadding } from './Card';
 
 export { Icon } from './Icon';
 export type { IconProps, IconVariant, IconSize } from './Icon';
+
+export { Toast } from './Toast';
+export type { ToastProps, ToastVariant } from './Toast';

@@ -105,7 +105,7 @@ son la primera validación visual.
 - [ ] Botón "Marcar todas como leídas" → todos los items pierden el dot
       sin cerrar el panel; el dot rojo del bell se apaga.
 - [ ] Insertar notif vía SQL (`insert into notifications (recipient_id,
-    type, title) values (auth.uid(), 'system', 'Test');`) → con la
+  type, title) values (auth.uid(), 'system', 'Test');`) → con la
       pestaña visible y el panel abierto, esperar 30s → la notif aparece
       sin recargar.
 - [ ] Pestaña inactiva 1 min → fetch pausado (verificar en Network tab
@@ -132,6 +132,85 @@ son la primera validación visual.
       invitar yopmail desde cero → fila aparece como pending
       AUTOMÁTICAMENTE (sin backfill manual). **BLOQUEADO por rate-limit
       hasta ~2026-05-27 02:30 UTC**.
+
+### `invite_error_landing` (cerrada 2026-05-27)
+
+Cubre el primitivo `Toast` nuevo + el listener de errores de auth + la
+migración de los 2 call sites existentes (VisitScheduler,
+ResendInvitationButton).
+
+**Listener — los 3 codes en URL manual:**
+
+- [ ] Navegar a `http://localhost:3000/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired`
+      → aparece toast warning con "El link de invitación expiró. Pídele
+      al admin que te envíe uno nuevo." → URL queda `http://localhost:3000/`
+      sin hash → toast desaparece solo a los ~6s.
+- [ ] Navegar a `http://localhost:3000/#error=access_denied&error_code=access_denied&error_description=Unauthorized`
+      → toast con "El link ya fue usado o no es válido. Si necesitas
+      otro, pídeselo al admin."
+- [ ] Navegar a `http://localhost:3000/#error=server_error&error_code=potato&error_description=test`
+      → toast con copy fallback "Hubo un problema con tu link de
+      autenticación. Intenta de nuevo o pídele al admin un link nuevo."
+
+**Listener — casos negativos:**
+
+- [ ] `http://localhost:3000/` (sin hash) → NO aparece toast.
+- [ ] `http://localhost:3000/#new-in-market` → NO aparece toast; el hash
+      se conserva en la URL.
+- [ ] `http://localhost:3000/#access_token=foo&type=signup` → NO aparece
+      toast.
+
+**Listener — interacción:**
+
+- [ ] Test 1 + pulsar Escape antes de 6s → toast cierra inmediatamente.
+- [ ] Test 1 + clickear botón X → toast cierra inmediatamente.
+- [ ] Test 1 + Back del browser después del toast → navega a la página
+      previa (no a la URL con hash), confirma que `replaceState` no creó
+      entry en history.
+
+**Flujo E2E real:**
+
+- [ ] Como admin: invitar a un nuevo user yopmail → esperar ≥1h sin
+      clickear el link → clickear el link expirado → invitado aterriza
+      en `localhost:3000/` con toast warning del copy `otp_expired` →
+      URL limpia tras el primer render. **Requiere rate-limit liberado**.
+
+**Primitivo Toast en `/dev/ui`:**
+
+- [ ] Abrir `http://localhost:3000/dev/ui` → ver sección "Toast" con
+      las 3 variants (success/warning/danger) → cada una usa el ícono
+      default correcto (`check_circle` / `warning` / `error`), el color
+      de fondo soft, el texto saturado.
+- [ ] Tab al botón close de cada variant → ring visible con el color
+      del variant (success/warning/danger).
+- [ ] Cerrar un toast con X → fila muestra botón "Reset" → click Reset
+      reabre el toast.
+
+**Migración VisitScheduler (smoke F):**
+
+- [ ] Login como user → ir a `/property/<id>/visit` → seleccionar slot
+      libre → "Confirmar visita" → aparece toast **success** con texto
+      "Visita confirmada." → a los ~600ms redirige a `/profile?tab=visits`.
+- [ ] Validar visualmente que el toast pasó de pill (`rounded-full`)
+      a recuadro (`rounded-lg`) — el shape cambió, debe verse centrado y
+      legible (regresión visual conocida y aceptada, R6 §8).
+- [ ] El toast NO tiene botón X visible (`dismissible={false}`) y NO
+      auto-desaparece — sólo el redirect lo descarta.
+
+**Migración ResendInvitationButton (smoke G):**
+
+- [ ] Login como admin → `/admin/users` → fila pending con link expirado
+      → clickear "Reenviar invitación" → aparece toast **success**
+      flotante (NO inline) con texto "Invitación reenviada a {nombre}."
+      → auto-dismiss tras ~4s.
+- [ ] Forzar 429 (clickear muchas veces seguidas hasta hit del rate-limit)
+      → aparece toast **danger** con el mensaje del error ("Demasiadas
+      invitaciones recientes.") → persiste hasta cerrar con X o Escape
+      (no auto-dismiss en error).
+- [ ] Validar que la fila admin NO se descuadra (ya no hay `<p>` debajo
+      del botón ocupando ~20px de alto).
+- [ ] El botón queda disabled tras success durante los ~4s → al cerrar
+      el toast (auto-dismiss o manual) se re-habilita.
 
 ---
 
