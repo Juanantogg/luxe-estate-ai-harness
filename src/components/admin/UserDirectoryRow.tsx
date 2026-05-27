@@ -3,6 +3,7 @@ import type { AdminUserRow } from '@/lib/admin/queries';
 import { formatSalesShort } from '@/lib/admin/format';
 import { cn } from '@/lib/utils/cn';
 import { ChangeRoleMenu } from './ChangeRoleMenu';
+import { ResendInvitationButton } from './ResendInvitationButton';
 import { UserRoleBadge } from './UserRoleBadge';
 import { UserStatusIndicator, deriveUserStatus } from './UserStatusIndicator';
 
@@ -27,10 +28,12 @@ function shortId(id: string): string {
  *  - Si `user.id === callerId` (decisión C3): fila pintada con
  *    `bg-surface-soft` (hint-green) sin hover override; botón disabled
  *    "No editable".
- *  - Si `status === 'pending'`: botón disabled "Pendiente" — el target
- *    todavía no aceptó la invitación. No se pinta background especial
- *    (decisión §5.2/§15 del spec); los canales visuales son el icono
- *    `mail_outline` warning + Avatar `away` + botón disabled.
+ *  - Si `status === 'pending'`:
+ *    - Si `user.canResendInvitation` (last_invited_at ≥ 1h): botón activo
+ *      "Reenviar invitación" que dispara la Server Action.
+ *    - Si no: botón disabled "Pendiente" — el link enviado todavía es
+ *      válido. Los canales visuales son el icono `mail_outline` warning
+ *      + Avatar `away` + botón disabled.
  *  - En cualquier otro caso: `ChangeRoleMenu` normal.
  */
 export function UserDirectoryRow({ user, callerId }: UserDirectoryRowProps) {
@@ -106,17 +109,25 @@ export function UserDirectoryRow({ user, callerId }: UserDirectoryRowProps) {
       No editable
     </Button>
   ) : status === 'pending' ? (
-    <Button
-      variant="secondary"
-      size="sm"
-      disabled
-      aria-disabled="true"
-      title="El usuario todavía no aceptó la invitación"
-      className="md:w-auto"
-      fullWidth
-    >
-      Pendiente
-    </Button>
+    user.canResendInvitation ? (
+      <ResendInvitationButton
+        userId={user.id}
+        userEmail={user.email}
+        userDisplayName={displayName}
+      />
+    ) : (
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled
+        aria-disabled="true"
+        title="Esperando que el usuario acepte la invitación. Si pasa más de una hora podrás reenviarla."
+        className="md:w-auto"
+        fullWidth
+      >
+        Pendiente
+      </Button>
+    )
   ) : (
     <ChangeRoleMenu
       userId={user.id}

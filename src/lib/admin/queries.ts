@@ -19,10 +19,26 @@ export type DirectoryTab = 'all' | 'user' | 'agent' | 'admin' | 'pending';
 export type DirectoryRoleFilter = 'all' | 'user' | 'agent' | 'admin';
 
 /**
+ * Antigüedad mínima del último invite para considerar el link expirado.
+ * Supabase Auth OTP de invite tiene TTL 1h por default — usamos el mismo
+ * valor como threshold para mostrar "Reenviar". Cambiar acá impacta UI
+ * y server simultáneamente.
+ */
+export const INVITE_RESEND_THRESHOLD_MS = 60 * 60 * 1000; // 1 hora
+
+/**
  * Fila enriquecida lista para alimentar `UserDirectoryRow`.
  *
  * `properties_count` y `sales_ytd` son `null` para `role === 'user'`
  * (no aplica). Para agent/broker/admin reflejan métricas reales.
+ *
+ * `last_invited_at`/`canResendInvitation` son ortogonales a la métrica
+ * y solo significativos para filas en `invitation_status='pending'`:
+ *  - `last_invited_at` viene del backfill (mig 0025) o del UPDATE
+ *    realizado por la action `resendInvitation`.
+ *  - `canResendInvitation` se calcula server-side: `true` SI
+ *    `status='pending' AND last_invited_at !== null AND now - last_invited_at
+ *    >= INVITE_RESEND_THRESHOLD_MS`. Para filas no-pending siempre `false`.
  */
 export interface AdminUserRow {
   id: string;
@@ -35,6 +51,8 @@ export interface AdminUserRow {
   created_at: string;
   properties_count: number | null;
   sales_ytd: number | null;
+  last_invited_at: string | null;
+  canResendInvitation: boolean;
 }
 
 export interface ListAdminUsersOptions {
@@ -116,9 +134,12 @@ export async function listAdminUsers(
   // Paso 1: query principal.
   let query = supabase
     .from('profiles')
-    .select('id, email, full_name, avatar_url, role, is_active, invitation_status, created_at', {
-      count: 'exact',
-    })
+    .select(
+      'id, email, full_name, avatar_url, role, is_active, invitation_status, created_at, last_invited_at',
+      {
+        count: 'exact',
+      },
+    )
     .order('created_at', { ascending: false })
     .range((page - 1) * pageSize, page * pageSize - 1);
 
@@ -188,18 +209,28 @@ export async function listAdminUsers(
     }
   }
 
-  const items: AdminUserRow[] = profiles.map((p) => ({
-    id: p.id,
-    email: p.email,
-    full_name: p.full_name,
-    avatar_url: p.avatar_url,
-    role: p.role,
-    is_active: p.is_active,
-    invitation_status: p.invitation_status,
-    created_at: p.created_at,
-    properties_count: p.role === 'user' ? null : (propertiesCountByOwner.get(p.id) ?? 0),
-    sales_ytd: p.role === 'user' ? null : (salesYtdByOwner.get(p.id) ?? 0),
-  }));
+  const now = Date.now();
+  const items: AdminUserRow[] = profiles.map((p) => {
+    const lastInvitedAt = p.last_invited_at;
+    const canResendInvitation =
+      p.invitation_status === 'pending' &&
+      lastInvitedAt !== null &&
+      now - new Date(lastInvitedAt).getTime() >= INVITE_RESEND_THRESHOLD_MS;
+    return {
+      id: p.id,
+      email: p.email,
+      full_name: p.full_name,
+      avatar_url: p.avatar_url,
+      role: p.role,
+      is_active: p.is_active,
+      invitation_status: p.invitation_status,
+      created_at: p.created_at,
+      properties_count: p.role === 'user' ? null : (propertiesCountByOwner.get(p.id) ?? 0),
+      sales_ytd: p.role === 'user' ? null : (salesYtdByOwner.get(p.id) ?? 0),
+      last_invited_at: lastInvitedAt,
+      canResendInvitation,
+    };
+  });
 
   return { items, total: count ?? 0 };
 }

@@ -225,6 +225,7 @@ export type Database = {
           id: string;
           invitation_status: Database['public']['Enums']['invitation_status_t'];
           is_active: boolean;
+          last_invited_at: string | null;
           member_since: string;
           phone: string | null;
           role: Database['public']['Enums']['user_role'];
@@ -240,6 +241,7 @@ export type Database = {
           id: string;
           invitation_status?: Database['public']['Enums']['invitation_status_t'];
           is_active?: boolean;
+          last_invited_at?: string | null;
           member_since?: string;
           phone?: string | null;
           role?: Database['public']['Enums']['user_role'];
@@ -255,6 +257,7 @@ export type Database = {
           id?: string;
           invitation_status?: Database['public']['Enums']['invitation_status_t'];
           is_active?: boolean;
+          last_invited_at?: string | null;
           member_since?: string;
           phone?: string | null;
           role?: Database['public']['Enums']['user_role'];

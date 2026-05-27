@@ -29,3 +29,8 @@ export const inviteUserSchema = z.object({
   initialRole: assignableRoleSchema,
 });
 export type InviteUserInput = z.infer<typeof inviteUserSchema>;
+
+export const resendInvitationSchema = z.object({
+  targetUserId: z.string().uuid(),
+});
+export type ResendInvitationInput = z.infer<typeof resendInvitationSchema>;

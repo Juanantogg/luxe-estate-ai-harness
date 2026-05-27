@@ -3,14 +3,17 @@
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import type { UserRole } from './queries';
 import {
   changeRoleSchema,
   inviteUserSchema,
   reactivateUserSchema,
+  resendInvitationSchema,
   suspendUserSchema,
   type ChangeRoleInput,
   type InviteUserInput,
   type ReactivateUserInput,
+  type ResendInvitationInput,
   type SuspendUserInput,
 } from './schemas';
 
@@ -44,6 +47,28 @@ export type InviteUserErrorCode =
 export type InviteUserResult =
   | { ok: true; email: string }
   | { ok: false; error: { code: InviteUserErrorCode; message: string } };
+
+/**
+ * Códigos de error para `resendInvitation`. Diferenciamos `not_pending`
+ * (nuestro guard antes de llamar a Supabase: el target ya aceptó antes
+ * del click) de `already_accepted` (la propia API de Supabase reporta
+ * `email_exists`/422 — race extremadamente improbable entre guard y RTT).
+ * En UI ambos se renderean con el mismo mensaje, pero diferenciar facilita
+ * debugging.
+ */
+export type ResendInvitationErrorCode =
+  | 'unauthenticated'
+  | 'forbidden'
+  | 'invalid'
+  | 'not_found'
+  | 'not_pending'
+  | 'already_accepted'
+  | 'rate_limited'
+  | 'server';
+
+export type ResendInvitationResult =
+  | { ok: true; email: string }
+  | { ok: false; error: { code: ResendInvitationErrorCode; message: string } };
 
 const DIRECTORY_PATH = '/admin/users';
 
@@ -134,6 +159,63 @@ async function requireAcceptedTarget(
     };
   }
   return { ok: true };
+}
+
+/**
+ * Verifica que el target SÍ esté en estado de invitación pendiente.
+ *
+ * Devuelve `{ ok: true, email, role }` cuando puede proceder (datos
+ * útiles para la llamada admin posterior). Devuelve un `ResendInvitationResult`
+ * con `not_pending` cuando el target ya aceptó (race antes del click) o
+ * `not_found` cuando el row no existe. Espejo lógico de
+ * `requireAcceptedTarget`.
+ */
+async function requirePendingTarget(targetUserId: string): Promise<
+  | { ok: true; email: string; role: UserRole }
+  | {
+      ok: false;
+      result: { ok: false; error: { code: ResendInvitationErrorCode; message: string } };
+    }
+> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('email, role, invitation_status')
+    .eq('id', targetUserId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[requirePendingTarget] lookup failed:', error);
+    return {
+      ok: false,
+      result: {
+        ok: false,
+        error: { code: 'server', message: 'No se pudo validar el estado del usuario.' },
+      },
+    };
+  }
+  if (!data) {
+    return {
+      ok: false,
+      result: {
+        ok: false,
+        error: { code: 'not_found', message: 'Usuario no encontrado.' },
+      },
+    };
+  }
+  if (data.invitation_status !== 'pending') {
+    return {
+      ok: false,
+      result: {
+        ok: false,
+        error: {
+          code: 'not_pending',
+          message: 'El usuario ya aceptó la invitación. Refresca la página.',
+        },
+      },
+    };
+  }
+  return { ok: true, email: data.email, role: data.role };
 }
 
 /**
@@ -426,4 +508,90 @@ export async function inviteUser(input: InviteUserInput): Promise<InviteUserResu
 
   revalidatePath(DIRECTORY_PATH);
   return { ok: true, email: parsed.data.email };
+}
+
+/**
+ * Reenvía la invitación pendiente de un user invocando
+ * `auth.admin.inviteUserByEmail` con service_role. Preserva user_id,
+ * profile y relaciones (no borra ni recrea el row de auth.users).
+ *
+ * Guards (en orden):
+ *   a) Zod validation.
+ *   b) requireAdminCaller.
+ *   c) requirePendingTarget (target debe estar pending).
+ *
+ * Side effect post-éxito:
+ *   - UPDATE profiles.last_invited_at = now() para que la UI no muestre
+ *     "Reenviar" otra vez por al menos 1h.
+ *   - revalidatePath('/admin/users') para que un F5 trivial muestre el
+ *     timestamp nuevo.
+ *
+ * Si el UPDATE de `last_invited_at` falla post-envío, NO revertimos: el
+ * email ya está enviado y no podemos des-enviarlo. Logueamos y devolvemos
+ * `ok: true` igual (mismo trade-off documentado para `signOut` admin en
+ * `suspendUser`).
+ */
+export async function resendInvitation(
+  input: ResendInvitationInput,
+): Promise<ResendInvitationResult> {
+  const parsed = resendInvitationSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: { code: 'invalid', message: 'Datos inválidos.' } };
+  }
+
+  const caller = await requireAdminCaller();
+  if (!caller.ok) {
+    return {
+      ok: false,
+      error: {
+        code: caller.result.error.code as ResendInvitationErrorCode,
+        message: caller.result.error.message,
+      },
+    };
+  }
+
+  const target = await requirePendingTarget(parsed.data.targetUserId);
+  if (!target.ok) return target.result;
+
+  const admin = createAdminClient();
+  const { error: inviteErr } = await admin.auth.admin.inviteUserByEmail(target.email, {
+    data: { initial_role: target.role },
+  });
+
+  if (inviteErr) {
+    const e = toAdminApiError(inviteErr);
+    const code: ResendInvitationErrorCode =
+      e.status === 429
+        ? 'rate_limited'
+        : e.code === 'user_not_found' || e.status === 404
+          ? 'not_found'
+          : e.code === 'email_exists' || e.status === 422
+            ? 'already_accepted'
+            : 'server';
+    const message =
+      code === 'rate_limited'
+        ? 'Demasiados reenvíos recientes. Espera unos minutos.'
+        : code === 'not_found'
+          ? 'Usuario no encontrado.'
+          : code === 'already_accepted'
+            ? 'El usuario ya aceptó la invitación. Refresca la página.'
+            : 'No se pudo reenviar la invitación.';
+    console.error('[resendInvitation] inviteUserByEmail failed:', inviteErr);
+    return { ok: false, error: { code, message } };
+  }
+
+  // Persistir el timestamp nuevo. Si esto falla, ya enviamos el email
+  // — logueamos pero NO revertimos (mismo trade-off que mig 0024 con
+  // signOut admin de suspendUser).
+  const supabase = await createClient();
+  const { error: updErr } = await supabase
+    .from('profiles')
+    .update({ last_invited_at: new Date().toISOString() })
+    .eq('id', parsed.data.targetUserId);
+  if (updErr) {
+    console.error('[resendInvitation] last_invited_at update failed:', updErr);
+  }
+
+  revalidatePath(DIRECTORY_PATH);
+  return { ok: true, email: target.email };
 }

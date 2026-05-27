@@ -12,6 +12,9 @@ export { InviteUserButton } from './InviteUserButton';
 export { InviteUserDialog } from './InviteUserDialog';
 export type { InviteUserDialogProps } from './InviteUserDialog';
 
+export { ResendInvitationButton } from './ResendInvitationButton';
+export type { ResendInvitationButtonProps } from './ResendInvitationButton';
+
 export { UserDirectoryEmptyState } from './UserDirectoryEmptyState';
 export type { UserDirectoryEmptyStateProps } from './UserDirectoryEmptyState';
 
