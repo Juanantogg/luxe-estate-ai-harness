@@ -100,8 +100,18 @@ Spec original tenía 17 pasos end-to-end, diferidos hasta que existiera
 
 > Hallazgo adicional (2026-05-26, Dario): las properties featured aparecen
 > DUPLICADAS — en "Colecciones destacadas" Y en "Nuevas en el mercado".
-> Causa: getNewInMarketProperties no filtra is_featured. Agregado al
-> backlog como `home_exclude_featured_from_new_in_market`.
+> Causa: getNewInMarketProperties no filtra is_featured. ~~Agregado al
+> backlog como `home_exclude_featured_from_new_in_market`.~~ Cerrada
+> 2026-05-27 (ver checklist abajo).
+
+### `home_exclude_featured_from_new_in_market` (cerrada 2026-05-27)
+
+- [ ] Navegar a `/` (sin filtros) → ninguna property se repite entre
+      "Colecciones destacadas" y "Nuevas en el mercado".
+- [ ] Navegar a `/?listing=rent` → idem, sin duplicados; si las únicas
+      properties de rent eran featured, "Nuevas en el mercado" muestra
+      empty state (decisión cerrada: aceptable).
+- [ ] Navegar a `/?type=villa` → idem, sin duplicados.
 
 ### `admin_user_directory` (cerrada 2026-05-26)
 

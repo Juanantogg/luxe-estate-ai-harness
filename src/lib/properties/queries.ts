@@ -159,6 +159,11 @@ export async function getNewInMarketProperties(
       .order('id', { ascending: false })
       .limit(opts.limit + 1);
 
+    // Excluir destacadas SIEMPRE: la sección "Nuevas en el mercado" tiene
+    // contrato semántico complementario a "Colecciones destacadas". Sin este
+    // filtro, las featured se duplicarían en ambas secciones de la home.
+    q = q.eq('is_featured', false);
+
     if (useWindow) q = q.gte('published_at', since);
     if (opts.listingType) q = q.eq('listing_type', opts.listingType);
     if (opts.propertyType && opts.propertyType !== 'all') {

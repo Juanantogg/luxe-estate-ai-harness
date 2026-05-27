@@ -413,8 +413,8 @@
         "El filtro NO se aplica si el user navega con filtros activos (listingType o propertyType) — en ese caso ya hay un criterio de filtrado explícito; mantenerlo opcional como flag o aplicarlo solo en el caso 'sin filtros' es decisión de implementación",
         "Smoke test: navegar a `/` → ninguna property se repite entre 'Colecciones destacadas' y 'Nuevas en el mercado'"
       ],
-      "status": "pending",
-      "notes": "Surge de smoke test 2026-05-26 (Dario). Decisión pendiente del implementer: ¿filtrar featured siempre o solo en el caso 'sin filtros'? Mi recomendación: SIEMPRE — el contrato semántico de 'Nuevas en el mercado' es 'lo que NO está destacado'. Featured = curado por la app; New = el resto. Filtrar siempre simplifica el modelo. Si el user activa filtros y no hay match, mejor empty state que mostrar featured duplicado."
+      "status": "done",
+      "notes": "Surge de smoke test 2026-05-26 (Dario). Decisión del leader (2026-05-27): filtrar SIEMPRE, no condicional. Razón: contrato semántico complementario ('destacadas' = curado, 'nuevas' = el resto); si filtros + no-featured = ∅, mejor empty state que duplicar las featured globales.\n\nFix de 1 línea en `src/lib/properties/queries.ts:165`: `q = q.eq('is_featured', false);` dentro del closure `fetchPage`, antes del `if (useWindow)` para que el fallback `includeOlderIfEmpty` también lo respete (evita revivir el bug en el segundo branch). Reviewer APPROVED 2026-05-27 sin NITs. init.sh full OK (build verde, /home compila como ƒ dynamic).\n\nMatiz documentado en review.md para follow-up futuro: 'Colecciones destacadas' sigue ignorando query filters (`?listing=rent` puede mostrar una featured de venta arriba y empty abajo). No es regresión del bug fix; comportamiento preexistente.\n\nSmoke test manual pendiente del humano: navegar a `/` y `/?listing=rent` → ninguna property se repite entre las dos secciones."
     },
     {
       "name": "seed_more_properties",
