@@ -89,6 +89,35 @@ Verificación manual original más la del fix 0026 de hoy.
       confirmó OK el 2026-05-27 y pasó a Activo; queda re-test cuando
       rate-limit se libere).
 
+### `notifications_dropdown` (cerrada 2026-05-26)
+
+Smoke tests del spec §10 R10. La feature no tiene mockup y no hay
+referencias previas en el repo de un panel similar, así que estos tests
+son la primera validación visual.
+
+- [ ] Abrir el panel con notifs sin leer (elena@luxe-estate.test tiene
+      notificaciones del seed): ver bucket "Hoy" en el header, items con
+      dot izquierdo y `bg-primary-soft` en los unread.
+- [ ] Click en notif con `property_id` → navega a `/property/[id]` y
+      desaparece el dot.
+- [ ] Click en notif tipo `system` o `new_message` → solo marca como
+      leída (dot desaparece), NO navega.
+- [ ] Botón "Marcar todas como leídas" → todos los items pierden el dot
+      sin cerrar el panel; el dot rojo del bell se apaga.
+- [ ] Insertar notif vía SQL (`insert into notifications (recipient_id,
+    type, title) values (auth.uid(), 'system', 'Test');`) → con la
+      pestaña visible y el panel abierto, esperar 30s → la notif aparece
+      sin recargar.
+- [ ] Pestaña inactiva 1 min → fetch pausado (verificar en Network tab
+      de DevTools que no hay polls); volver al tab → fetch inmediato +
+      reanuda polling.
+- [ ] Mobile (≤640px): el panel se renderiza como bottom-sheet
+      anclado abajo con overlay; click en overlay cierra.
+- [ ] Desktop (≥640px): popover anclado al bell; click fuera cierra.
+- [ ] `Escape` cierra el panel desde cualquier breakpoint.
+- [ ] Empty state: con un user sin notificaciones (crear uno nuevo o
+      truncate de la tabla para él) → ver "No tienes notificaciones".
+
 ### `resend_invitation_button` (cerrada 2026-05-27)
 
 - [x] Forzar `last_invited_at` al pasado → botón "Reenviar invitación"
