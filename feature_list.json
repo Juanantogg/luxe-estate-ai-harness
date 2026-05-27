@@ -398,6 +398,136 @@
       ],
       "status": "done",
       "notes": "Sin mockup — designer libre dentro del sistema. Decisiones cerradas con el humano antes del designer (2026-05-26): (1) polling 30s, no Realtime; (2) buckets Hoy/Esta semana/Anteriores; (3) items sin destino útil (`system`, `new_message`) son clickeables y solo marcan como leída sin navegar; (4) badge del TopNav sigue siendo dot sin número (no se toca TopNav).\n\nDecisiones del designer (D5-D13): A) `NotifBell.tsx` se reemplaza por Client manteniendo firma `(unreadCount, className)` — TopNav no se toca; B) origen lista: route handler `GET /api/notifications/recent`, mutaciones en Server Actions; C) `formatRelativeTime` propio en `src/lib/format/relative-time.ts`, sin date-fns; D) mobile = bottom-sheet, sm+ = popover anclado; E) optimistic UI sin revert, próximo poll resincroniza; F) RLS mig 0009 ya cubre — sin migración nueva.\n\n12 archivos creados (5 lib/notifications + relative-time + route handler + 4 componentes + 1 índice) + 1 modificado (NotifBell pasa a Client). Patrón `derive.ts` MÓDULO NEUTRO para que el route handler (server) y el dropdown (client) compartan helpers sin el bug `feedback_use_client_exports`.\n\nReviewer APPROVED WITH NITS 2026-05-26 (0 bloqueantes, 4 NITs no bloqueantes). NIT 3 (no chequeaba `document.hidden` al montar) aplicado pre-commit en NotificationsDropdown.tsx. NITs 1, 2 y 4 documentados como deuda menor en review.md: (1) `NotifBell` usa setState durante render en lugar de useEffect — patrón válido, justificación inline mejorable; (2) `setTimeout(fetchOnce, 0)` workaround del lint, refactor opcional a `useTransition` o flag; (4) feature_list.json fue reformateado masivamente por el formatter automático del implementer — restaurado por el leader vía `git checkout` antes del commit.\n\ninit.sh full OK (lint + type-check + build). Smoke test manual pendiente del humano: ver progress/smoke-tests.md."
+    },
+    {
+      "name": "home_exclude_featured_from_new_in_market",
+      "title": "Fix: 'Nuevas en el mercado' duplica las properties de 'Colecciones destacadas'",
+      "block": "4_polish",
+      "depends_on": ["home_discover_screen"],
+      "requires_approval": false,
+      "description": "Smoke test 2026-05-26 (Dario) en la home pública: las 2 properties featured (Modern Villa Palo Alto, Azure Heights Penthouse) aparecen DUPLICADAS — una vez en 'Colecciones destacadas' (sección hero) y otra vez en 'Nuevas en el mercado' (grid inferior). Causa: `getNewInMarketProperties` (src/lib/properties/queries.ts:144) NO excluye properties con `is_featured=true`. Fix: agregar `.eq('is_featured', false)` al query, o equivalente `.neq('is_featured', true)`. Con seed actual de 11 properties hay solapamiento; el problema persistiría con cualquier seed si el orden por published_at coloca una featured en el top-N.",
+      "acceptance": [
+        "src/lib/properties/queries.ts getNewInMarketProperties: el query excluye properties con is_featured=true",
+        "La home pública muestra cada property al menos en 1 sección (featured XOR new in market)",
+        "El fallback `includeOlderIfEmpty` se preserva: si no hay properties no-featured en la ventana de 30 días, expande la ventana sin perder el filtro de featured",
+        "El filtro NO se aplica si el user navega con filtros activos (listingType o propertyType) — en ese caso ya hay un criterio de filtrado explícito; mantenerlo opcional como flag o aplicarlo solo en el caso 'sin filtros' es decisión de implementación",
+        "Smoke test: navegar a `/` → ninguna property se repite entre 'Colecciones destacadas' y 'Nuevas en el mercado'"
+      ],
+      "status": "pending",
+      "notes": "Surge de smoke test 2026-05-26 (Dario). Decisión pendiente del implementer: ¿filtrar featured siempre o solo en el caso 'sin filtros'? Mi recomendación: SIEMPRE — el contrato semántico de 'Nuevas en el mercado' es 'lo que NO está destacado'. Featured = curado por la app; New = el resto. Filtrar siempre simplifica el modelo. Si el user activa filtros y no hay match, mejor empty state que mostrar featured duplicado."
+    },
+    {
+      "name": "seed_more_properties",
+      "title": "Ampliar seed con más properties para validación visual",
+      "block": "4_polish",
+      "depends_on": ["image_placeholders"],
+      "requires_approval": false,
+      "description": "Smoke test 2026-05-26 (Dario) reveló que el seed tiene solo 11 properties. Eso es insuficiente para validar visualmente: (a) paginación de 'Load more' (con 11 properties el load-more se agota en 1-2 clicks); (b) variedad en chips de property_type (no hay representación uniforme de House/Apartment/Villa/Penthouse); (c) variedad de ciudades; (d) cobertura de los 4 listing_type (sale/rent); (e) properties con/sin imágenes. Ampliar el seed (scripts/seed.ts) a ~40-50 properties manteniendo idempotencia (re-correr no duplica). Usar más URLs estables de Unsplash; mezclar property_types/listing_types/cities; algunas con is_featured=true (al menos 4-5 para tener variedad en la sección destacada).",
+      "acceptance": [
+        "scripts/seed.ts amplía el array de properties a ~40-50 entries con variedad: property_type (10+ House, 10+ Apartment, 5+ Villa, 5+ Penthouse), listing_type (mix sale/rent), city (al menos 5 ciudades distintas), is_featured=true para al menos 4 properties",
+        "Idempotencia preservada: re-correr el seed NO duplica filas (upsert por slug o conflict on title+address)",
+        "Cada property tiene 2-3 property_images con URLs estables de Unsplash (sin imágenes rotas)",
+        "Documentar en notes.md del seed cómo se eligen los IDs de Unsplash y qué hacer si una URL se rompe en el futuro",
+        "El humano puede correr `pnpm seed` y ver 40+ properties en la home"
+      ],
+      "status": "pending",
+      "notes": "Surge de smoke test 2026-05-26: con 11 properties la home se queda corta para validar Load more (se agota muy rápido) y la duplicación featured/new in market es muy visible. Pregunta para el humano: ¿40-50 properties es el tamaño correcto o conviene apuntar a 80-100 para tener un sample más realista? Recomendación: 40-50 alcanza para los smoke tests; ampliar después si hace falta."
+    },
+    {
+      "name": "topnav_active_link_listing_sale",
+      "title": "Fix: TopNav 'Comprar' no se marca activo en /?listing=sale",
+      "block": "4_polish",
+      "depends_on": ["home_discover_screen"],
+      "requires_approval": true,
+      "description": "Smoke test 2026-05-26 (Dario) detectó inconsistencia entre el TopNav y el ListingTypeToggle de la home:\n\n- TopNav define link 'Comprar' como `href='/'` (sin query) y 'Rentar' como `href='/?listing=rent'`.\n- ListingTypeToggle introduce 3 estados: `all` → `/`, `sale` → `/?listing=sale`, `rent` → `/?listing=rent`.\n- `isLinkActive` (src/lib/nav/active-link.ts) hace match exacto de `listing`: `href='/'` matchea solo URLs sin `?listing=`.\n\nResultado: si el user clickea 'Rentar' en el toggle → URL pasa a `?listing=rent` → TopNav marca 'Rentar' activo ✓. Si clickea 'Comprar' en el toggle → URL pasa a `?listing=sale` → TopNav NO marca 'Comprar' activo ❌ (linkListing=null, currentListing='sale'). Si clickea 'Todas' → URL queda `/` → TopNav marca 'Comprar' activo (default), aunque el toggle interno muestre 'Todas' activo (diferente fuente de verdad).\n\nDecisión arquitectónica pendiente: ¿el TopNav define 'Comprar' como semánticamente equivalente a `?listing=sale` (Opción A) o como 'estado default sin filtro' (Opción B, hoy)? Esto define cuál es el modelo correcto.",
+      "acceptance": [
+        "Decidir y documentar en CLAUDE.md o design-system.md cuál es el modelo correcto entre las 3 opciones (A: TopNav 'Comprar' = ?listing=sale; B: isLinkActive relajado; C: ListingTypeToggle ajustado)",
+        "TopNav 'Comprar' se marca activo cuando el URL es `?listing=sale` (consistente con 'Rentar' que ya funciona)",
+        "TopNav 'Comprar' sigue marcándose activo cuando el URL es `/` sin query (default)",
+        "El estado del ListingTypeToggle (Todas/Comprar/Rentar) NO cambia: sigue funcionando como un filtro de 3 estados sobre la sección 'New in Market'",
+        "Las URLs producidas por el TopNav y por el toggle deben ser idénticas para estados equivalentes (consistencia de routing)",
+        "Cero hex literales nuevos, sin breaking changes en el helper isLinkActive si se mantiene para otros usos"
+      ],
+      "status": "pending",
+      "notes": "Surge de smoke test 2026-05-26 (Dario). El active-link helper (src/lib/nav/active-link.ts) fue diseñado en home_discover_screen con un modelo de 2 estados (default vs rent), pero search_filters_modal + ListingTypeToggle introdujeron un tercer estado (?listing=sale) sin que el TopNav lo reflejara. Pregunta al humano antes del designer: ¿el TopNav 'Comprar' debería navegar a `/` o a `/?listing=sale`? El primero mantiene URLs limpias para el caso common; el segundo es más consistente con 'Rentar'. Mi recomendación: Opción B (relajar isLinkActive para que 'Comprar' matchee también '?listing=sale') — TopNav sigue produciendo URL limpia al click, pero detecta el active state ampliado. Es 1 línea de cambio en el helper."
+    },
+    {
+      "name": "home_hero_visual_polish",
+      "title": "Ajustes visuales en HeroSearch y ListingTypeToggle de la home",
+      "block": "4_polish",
+      "depends_on": ["home_discover_screen"],
+      "requires_approval": false,
+      "description": "Smoke test 2026-05-26 (Dario) en la home pública detectó 2 inconsistencias visuales:\n\n(A) `HeroSearch` (src/components/home/HeroSearch.tsx): el input usa `rounded-xl` pero el botón submit (verde) usa `rounded` (rounded-DEFAULT, 0.25rem). El mismatch hace que el botón se vea cuadrado pegado a un input redondeado. Fix: alinear ambos radios — opción A: subir el botón a `rounded-lg` (más cercano al xl del input); opción B: el botón mantiene `rounded` pero se le da `right-3` para más aire visual.\n\n(B) `ListingTypeToggle` (src/components/property/ListingTypeToggle.tsx, línea 60): el estado activo usa `bg-surface-inverse text-on-surface-inverse` (negro Nordic / blanco). El sistema usa `bg-primary` (mosque) como color de acción primaria en TODOS los demás controles (botones, chips activos, badges). El toggle Buy/Rent debería usar la misma convención. Fix: cambiar a `bg-primary text-on-primary` (el shadow-soft se mantiene).",
+      "acceptance": [
+        "HeroSearch: el botón submit visualmente armónico con el input (radios consistentes)",
+        "ListingTypeToggle: la opción activa usa color primary (mosque verde) coherente con el resto del sistema",
+        "Comparar visualmente en /dev/ui o en home: las 3 opciones del toggle no deberían parecer un sistema de color distinto del resto de la app",
+        "Sin tocar la lógica de routing del toggle (router.replace({ scroll: false }) sigue igual)",
+        "Cero hex literales nuevos: usar solo tokens existentes"
+      ],
+      "status": "pending",
+      "notes": "Surge de smoke test 2026-05-26: Dario lo describió como 'ajustar diseño de botones para los que se muestran en la búsqueda y toggle buy/rent'. Ambos son cambios pequeños sobre componentes existentes. Posible pregunta para el designer: ¿el toggle debería usar bg-primary (mosque) o bg-primary-soft (hint-of-green)? Mosque es lo coherente con botones primary, pero soft es lo usado en chips activos según PropertyTypeChips. Validar primero qué patrón sigue PropertyTypeChips (también en la home) para mantener coherencia entre ambos toggles."
+    },
+    {
+      "name": "topnav_dead_links_cleanup",
+      "title": "Limpieza de links muertos y guards de sesión en TopNav",
+      "block": "4_polish",
+      "depends_on": ["app_shell"],
+      "requires_approval": false,
+      "description": "Smoke test 2026-05-26 (Dario) detectó 5 links del TopNav que apuntan a rutas inexistentes y 1 link privado visible sin sesión:\n\n(A) variant `app`: link 'Vender' → `/sell` (404).\n(B) variant `app`: link 'Guardados' → `/favorites` se muestra incluso sin sesión; el middleware redirige a login pero genera fricción innecesaria. Debe ocultarse si `session === null`.\n(C) variant `dashboard`: links 'Inquilinos' (`/dashboard/tenants`) y 'Finanzas' (`/dashboard/finance`) → 404.\n(D) variant `admin`: links 'Propiedades' (`/admin/properties`) e 'Consultas' (`/admin/inquiries`) → 404.\n\nFix conservador: ocultar los links rotos hasta que existan las rutas (no remover la entrada en el config — comentarlas o filtrar por flag para que se restituyan cuando se materialicen las features). Guard de sesión: en variant `app`, filtrar el array de links cuando session === null para excluir rutas privadas (hoy solo /favorites). Decidir si /sell es feature futura o se descarta (no aparece en el backlog actual ni en docs/designs/).",
+      "acceptance": [
+        "Link 'Vender' removido o oculto del array `links` de variant `app` en `src/components/nav/TopNav.tsx`",
+        "Link 'Guardados' filtrado fuera del render cuando session === null (decisión: el filtrado pasa en TopNav Server Component antes de pasar links al NavLinks/MobileNavDrawer Client Components)",
+        "Links 'Inquilinos', 'Finanzas' removidos o ocultos en variant `dashboard`",
+        "Links 'Propiedades' (admin), 'Consultas' removidos o ocultos en variant `admin`",
+        "Si se decide ocultar (no remover): wrappear cada link con un flag booleano `enabled: true|false` y filtrar al construir el array; documentar en comentario por qué quedan ahí",
+        "Mobile drawer respeta los mismos cambios (NavLinks + MobileNavDrawer comparten la misma fuente)",
+        "Smoke test: TopNav sin sesión → solo Comprar/Rentar visibles (sin Guardados ni Vender); TopNav user logueado → +Guardados; dashboard logueado → solo Dashboard/Propiedades; admin logueado → solo Dashboard/Usuarios"
+      ],
+      "status": "pending",
+      "notes": "Pregunta abierta para el humano antes del designer: ¿Vender, Inquilinos, Finanzas, Propiedades (admin), Consultas son features previstas o se eliminan del config? Si son previstas, mejor agregar entradas placeholder a feature_list.json y ocultar con flag `enabled: false`. Si no, remover el array entry. Decisión simple: por ahora ocultar (flag), porque restituir es 1 línea. Fix mínimo conservador, no toca routing real."
+    },
+    {
+      "name": "property_pretty_urls",
+      "title": "URLs amigables para properties (slug en vez de UUID)",
+      "block": "4_polish",
+      "depends_on": ["property_details_screen", "add_edit_property_form"],
+      "requires_approval": true,
+      "description": "Hoy las URLs de properties son `/property/<uuid>`, lo que perjudica UX y SEO (URLs ilegibles, no shareables). Migrar a `/property/<slug>` donde slug es derivado del title + ciudad + un suffix corto del UUID para garantizar unicidad (ej. `casa-luxe-polanco-a3f2`). Mantener compatibilidad: redirigir GET de `/property/<uuid>` a `/property/<slug>` con 308 para no romper links existentes (favoritos, notificaciones con property_id en payloads). Slug se autogenera en el INSERT vía trigger DB (idempotente: si ya viene seteado, respeta el value); en UPDATE de title se mantiene el slug (slugs estables). Subrutas como `/property/<slug>/schedule` también funcionan.",
+      "acceptance": [
+        "Migración nueva agrega columna `properties.slug text not null` con índice único parcial donde `listing_status <> 'archived'`",
+        "Función `public.generate_property_slug(title text, city text, id uuid) returns text` que aplica slugify (lowercase, sin acentos, kebab-case) + suffix de 4 chars del UUID",
+        "Trigger BEFORE INSERT en properties: si NEW.slug IS NULL → set NEW.slug = generate_property_slug(title, city, id)",
+        "Backfill: UPDATE properties SET slug = generate_property_slug(title, city, id) WHERE slug IS NULL",
+        "Cambio de ruta: `src/app/(app)/property/[id]/page.tsx` pasa a `src/app/(app)/property/[slug]/page.tsx` (y subruta `/schedule/`). Query queries.ts: `from('properties').select().eq('slug', slug)`",
+        "Route handler GET `/property/<uuid>` → permanentRedirect 308 a `/property/<slug>` (lookup por UUID y redirección)",
+        "PropertyCard, PriceAndAgentCard, dashboard table, favorites, search results y cualquier helper que construya URLs de property migran a `getPropertyUrl(property)` (nuevo helper en src/lib/properties/urls.ts) que recibe `{slug}` y devuelve el path correcto",
+        "Notification payloads que referencian properties NO cambian (siguen guardando property_id UUID); el resolver en el dropdown resuelve slug al renderizar",
+        "Smoke test manual: navegar a /property/<uuid> viejo → redirige a /property/<slug>; navegar directo a /property/<slug> → 200; archivar property → 404 en /property/<slug> (RLS lo cubre)"
+      ],
+      "status": "pending",
+      "notes": "Surge de smoke test 2026-05-26 (Dario): 'URLs amigables /property/<slug>'. Decisión cerrada antes del designer: slug autogenerado en DB (no en code) para garantizar idempotencia y unicidad cross-cliente. Suffix de 4 chars del UUID en lugar de número incremental para evitar lookup pre-insert. Riesgo: títulos en español con acentos requieren normalización Unicode NFD — la función SQL la hace con `translate` sobre el rango de caracteres acentuados o usar la extensión `unaccent` si está disponible. Verificar advisor de seguridad: la función debe ser `SECURITY INVOKER STABLE` (no DEFINER) porque solo lee args + IMMUTABLE en realidad; el trigger sí necesita SECURITY DEFINER si va a ser invocado por anon/authenticated."
+    },
+    {
+      "name": "fix_auth_error_listener_and_toast_polish",
+      "title": "Fix: AuthErrorHashListener (StrictMode) + ajustes visuales del primitivo Toast",
+      "block": "4_polish",
+      "depends_on": ["invite_error_landing"],
+      "requires_approval": false,
+      "description": "Bundle de 3 issues detectados en smoke test 2026-05-26 del primitivo Toast y su listener:\n\n(A) AuthErrorHashListener no muestra el toast en `pnpm dev`. La URL se limpia (replaceState corre) pero el toast warning nunca aparece. Causa: el `useEffect` corre dos veces por StrictMode + React 19. El primer mount: parsea el hash, hace `replaceState`, schedule `setTimeout(setError, 0)`. El cleanup del primer mount cancela el setTimeout. El segundo mount: lee `window.location.hash` que YA fue limpiado por el replaceState del primer mount → `parseHash` retorna null → return early → `setError` nunca corre. Fix: usar `useRef` para guardar el `ParsedError` parseado en la primera corrida, o setear state síncrono (no diferido con setTimeout) aceptando el warn lint con justificación inline. Verificar también si el bug existe en `pnpm build && pnpm start`.\n\n(B) Toast.tsx: el contenido se ve desalineado verticalmente. `items-start` + `mt-0.5` del Icon NO logra centrar visualmente el ícono respecto del texto (validado en /dev/ui 2026-05-26). Cambiar a `items-center` (el texto del toast suele ser de 1 línea; si crece a 2 líneas, items-start con el mt-0.5 sigue siendo aceptable, pero items-center luce mejor en el caso típico).\n\n(C) Toast.tsx: el botón close (X) NO muestra `cursor-pointer` en hover. Agregar la utility — convención del repo en buttons no-form.",
+      "acceptance": [
+        "AuthErrorHashListener.tsx muestra el toast warning en `pnpm dev` tras navegar a una URL con `#error=...&error_code=otp_expired`",
+        "URL se limpia con replaceState ANTES del primer paint del toast (preservar garantía del spec original)",
+        "El back-button del navegador no vuelve a la URL con hash (replaceState, no pushState)",
+        "Smoke test del listener pasa los 3 codes + Escape/X/Back (ver progress/smoke-tests.md sección invite_error_landing)",
+        "No introducir provider/context — mantener el componente como Client primitivo con useState local",
+        "Documentar en comentario inline por qué el approach elegido sobrevive a StrictMode double-mount",
+        "Toast.tsx: el ícono y el texto del mensaje quedan centrados verticalmente en mensajes de 1 línea (validar en /dev/ui las 3 variants)",
+        "Toast.tsx: el botón X muestra `cursor-pointer` en hover",
+        "Re-correr showcase de /dev/ui tras el fix: verificar que las 3 variants se vean alineadas y que el hover del X muestre el cursor correcto"
+      ],
+      "status": "pending",
+      "notes": "Surge del smoke test del 2026-05-26 (Dario):\n\nA) Listener: el reviewer original (2026-05-27) verificó 'replaceState corre síncrono antes del tick' pero no anticipó el double-mount de StrictMode que invalida la lectura del hash en el segundo render. Reproducción: 1) `pnpm dev` arriba; 2) abrir `http://localhost:3000/#error=access_denied&error_code=otp_expired&error_description=test` en pestaña limpia; 3) URL se limpia a `http://localhost:3000/`, NO aparece toast. Hipótesis del fix: capturar el parsed result en un `useRef<ParsedError | null>(null)` poblado en la primera corrida, y en cualquier corrida posterior si el ref tiene valor → llamar setError con él. Alternativa más limpia: setear state síncrono (sin setTimeout) y dejar que el lint warn pase con justificación inline (precedente en NotificationsDropdown/NotifBell). Verificar también si afecta a prod build.\n\nB) Alineación: en /dev/ui se ve claramente que los 3 toasts tienen el texto pegado al borde superior del ícono. El primitivo usa `items-start` + `Icon className='mt-0.5'`. Cambio sugerido: `items-center` y quitar el `mt-0.5`. Riesgo: si el mensaje crece a 2 líneas, items-center deja el ícono visualmente en el medio del bloque de texto (puede no ser ideal). En la mayoría de los call sites actuales el mensaje es 1 línea, así que items-center es la mejor decisión por defecto.\n\nC) Cursor: el botón close no tiene cursor-pointer. Convención del repo (verificar en otros botones del directory admin, NotifBell, etc.) usa `cursor-pointer` para botones no-form."
     }
   ]
 }

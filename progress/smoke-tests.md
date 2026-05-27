@@ -39,27 +39,69 @@ Spec original tenía 17 pasos end-to-end, diferidos hasta que existiera
 
 ### `app_shell` (cerrada 2026-05-22)
 
-- [ ] TopNav variante `app` para user logueado: links Comprar/Rentar/
+- [x] TopNav variante `app` para user logueado: links Comprar/Rentar/
       Vender/Guardados + search + notif badge + avatar dropdown.
+      (2026-05-26, elena, dropdown sin Dashboard/Admin como esperado)
 - [ ] TopNav variante `dashboard` para agent.
 - [ ] TopNav variante `admin` para admin.
-- [ ] TopNav variante `app` para user **no logueado**: muestra CTAs
+- [x] TopNav variante `app` para user **no logueado**: muestra CTAs
       "Iniciar sesión" / "Registrarse" en lugar de avatar.
+      (2026-05-26, validado)
+
+> Hallazgos del smoke (2026-05-26, Dario):
+> (1) link 'Vender' → `/sell` da 404;
+> (2) link 'Guardados' → `/favorites` se muestra sin sesión y redirige a
+> login (UX mejorable: ocultar si no hay sesión).
+> Agregado al backlog como `topnav_dead_links_cleanup`. También detectados
+> 4 links muertos en variants dashboard/admin (revisar al testear esas
+> variants).
+
 - [ ] Mobile (≤640px): nav colapsa a hamburguesa abriendo drawer.
-- [ ] Avatar dropdown muestra links según rol y signOut funciona.
+- [x] Avatar dropdown muestra links según rol y signOut funciona.
+      (2026-05-26, elena role=user: dropdown muestra solo "Perfil" +
+      "Cerrar sesión"; signOut redirige a /login)
 - [ ] Skip link de a11y: tab al cargar → enfoca "Saltar al contenido".
 
 ### `home_discover_screen` (cerrada 2026-05-22)
 
-- [ ] Home pública (sin sesión) carga sin errores.
-- [ ] Featured Collections muestra propiedades is_featured=true.
-- [ ] New in Market grid responsivo (2 cols sm, 3 cols md, 4 cols lg).
-- [ ] Toggle Buy/Rent filtra por listing_type.
-- [ ] Chips de property_type filtran (All / House / Apartment / Villa /
-      Penthouse).
-- [ ] Heart en card sin sesión → redirige a /login con next.
-- [ ] Heart en card con sesión → toggle favorite con optimistic UI.
-- [ ] Load more aumenta resultados.
+- [x] Home pública (sin sesión) carga sin errores. (2026-05-26)
+- [x] Featured Collections muestra propiedades is_featured=true. (2026-05-26)
+- [x] New in Market grid responsivo (2 cols sm, 3 cols md, 4 cols lg).
+      (2026-05-26, validado visual a 1 breakpoint)
+
+> Hallazgos visuales en la home (2026-05-26, Dario):
+> (1) HeroSearch: mismatch de radius entre input (rounded-xl) y botón
+> "Buscar" (rounded-DEFAULT) — el botón se ve cuadrado pegado;
+> (2) ListingTypeToggle (Todas/Comprar/Rentar): estado activo usa
+> bg-surface-inverse (negro) en lugar de bg-primary (mosque). Incoherente
+> con el resto del sistema.
+> Agregado al backlog como `home_hero_visual_polish`.
+
+- [x] Toggle Buy/Rent filtra por listing_type. (2026-05-26, filtrado
+      funcional; bug visual del estado activo documentado aparte en
+      `home_hero_visual_polish`)
+- [x] Chips de property_type filtran (All / House / Apartment / Villa /
+      Penthouse). (2026-05-26, filtrado funcional, color verde en activa,
+      "Todas" actúa como reset)
+
+> Hallazgo adicional (2026-05-26, Dario): `/?listing=sale` NO marca
+> "Comprar" activo en el TopNav (sí lo hace `/?listing=rent` con "Rentar").
+> Causa: el link "Comprar" en TopNav es `href='/'` y el helper isLinkActive
+> hace match exacto de `listing`. Agregado al backlog como
+> `topnav_active_link_listing_sale`.
+
+- [x] Heart en card sin sesión → redirige a /login con next.
+      (2026-05-26, redirect a `/login?next=%2F` confirmado)
+- [x] Heart en card con sesión → toggle favorite con optimistic UI.
+      (2026-05-26, elena, toggle sin recarga)
+- [x] Load more aumenta resultados. (2026-05-26, funciona, pero seed tiene
+      solo 11 properties — se agota en 1-2 clicks; agregado al backlog
+      `seed_more_properties`)
+
+> Hallazgo adicional (2026-05-26, Dario): las properties featured aparecen
+> DUPLICADAS — en "Colecciones destacadas" Y en "Nuevas en el mercado".
+> Causa: getNewInMarketProperties no filtra is_featured. Agregado al
+> backlog como `home_exclude_featured_from_new_in_market`.
 
 ### `admin_user_directory` (cerrada 2026-05-26)
 
@@ -141,26 +183,39 @@ ResendInvitationButton).
 
 **Listener — los 3 codes en URL manual:**
 
+> ⚠️ **BUG conocido en dev (2026-05-26)**: en `pnpm dev` el listener limpia
+> el hash pero NO muestra el toast. Causa: React 19 StrictMode monta el
+> efecto dos veces; el primer mount hace `replaceState` + schedule del
+> `setTimeout(setError, 0)`, el cleanup lo cancela; el segundo mount lee
+> el hash YA limpio y sale temprano sin setear el state. Tracking en
+> feature `fix_auth_error_listener_and_toast_polish` (block 4_polish).
+> Falta verificar si el bug también ocurre en `pnpm build && pnpm start`.
+
 - [ ] Navegar a `http://localhost:3000/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired`
       → aparece toast warning con "El link de invitación expiró. Pídele
       al admin que te envíe uno nuevo." → URL queda `http://localhost:3000/`
       sin hash → toast desaparece solo a los ~6s.
+      **FALLA en dev 2026-05-26**: URL se limpia, toast nunca aparece.
 - [ ] Navegar a `http://localhost:3000/#error=access_denied&error_code=access_denied&error_description=Unauthorized`
       → toast con "El link ya fue usado o no es válido. Si necesitas
-      otro, pídeselo al admin."
+      otro, pídeselo al admin." (mismo bug esperado)
 - [ ] Navegar a `http://localhost:3000/#error=server_error&error_code=potato&error_description=test`
       → toast con copy fallback "Hubo un problema con tu link de
       autenticación. Intenta de nuevo o pídele al admin un link nuevo."
+      (mismo bug esperado)
 
 **Listener — casos negativos:**
 
-- [ ] `http://localhost:3000/` (sin hash) → NO aparece toast.
-- [ ] `http://localhost:3000/#new-in-market` → NO aparece toast; el hash
-      se conserva en la URL.
-- [ ] `http://localhost:3000/#access_token=foo&type=signup` → NO aparece
-      toast.
+- [x] `http://localhost:3000/` (sin hash) → NO aparece toast. (2026-05-26)
+- [x] `http://localhost:3000/#new-in-market` → NO aparece toast; el hash
+      se conserva en la URL. (2026-05-26)
+- [x] `http://localhost:3000/#access_token=foo&type=signup` → NO aparece
+      toast. (2026-05-26)
 
 **Listener — interacción:**
+
+> BLOQUEADOS por bug de StrictMode (ver feature
+> `fix_auth_error_listener_and_toast_polish`). Re-ejecutar tras el fix.
 
 - [ ] Test 1 + pulsar Escape antes de 6s → toast cierra inmediatamente.
 - [ ] Test 1 + clickear botón X → toast cierra inmediatamente.
@@ -177,25 +232,43 @@ ResendInvitationButton).
 
 **Primitivo Toast en `/dev/ui`:**
 
-- [ ] Abrir `http://localhost:3000/dev/ui` → ver sección "Toast" con
+- [x] Abrir `http://localhost:3000/dev/ui` → ver sección "Toast" con
       las 3 variants (success/warning/danger) → cada una usa el ícono
       default correcto (`check_circle` / `warning` / `error`), el color
-      de fondo soft, el texto saturado.
-- [ ] Tab al botón close de cada variant → ring visible con el color
-      del variant (success/warning/danger).
-- [ ] Cerrar un toast con X → fila muestra botón "Reset" → click Reset
-      reabre el toast.
+      de fondo soft, el texto saturado. (2026-05-26)
+- [x] Tab al botón close de cada variant → ring visible con el color
+      del variant (success/warning/danger). (2026-05-26, validado en
+      variant danger; las 3 comparten el mismo patrón `focus-visible:ring`
+      en Toast.tsx)
+- [x] Cerrar un toast con X → fila muestra botón "Reset" → click Reset
+      reabre el toast. (2026-05-26)
+
+> Issues visuales detectados en este smoke (2026-05-26):
+> (1) los 3 toasts comparten posición fixed y se solapan en pantalla —
+> esperado (showcase lo advierte);
+> (2) el texto del mensaje NO está alineado verticalmente con el ícono
+> (luce flotando arriba) — agregado a feature
+> `fix_auth_error_listener_and_toast_polish`;
+> (3) el botón X no muestra `cursor-pointer` en hover — agregado al mismo
+> fix.
 
 **Migración VisitScheduler (smoke F):**
 
-- [ ] Login como user → ir a `/property/<id>/visit` → seleccionar slot
+- [x] Login como user → ir a `/property/<id>/schedule` → seleccionar slot
       libre → "Confirmar visita" → aparece toast **success** con texto
       "Visita confirmada." → a los ~600ms redirige a `/profile?tab=visits`.
-- [ ] Validar visualmente que el toast pasó de pill (`rounded-full`)
+      (2026-05-26, validado con elena por Dario)
+- [x] Validar visualmente que el toast pasó de pill (`rounded-full`)
       a recuadro (`rounded-lg`) — el shape cambió, debe verse centrado y
-      legible (regresión visual conocida y aceptada, R6 §8).
-- [ ] El toast NO tiene botón X visible (`dismissible={false}`) y NO
-      auto-desaparece — sólo el redirect lo descarta.
+      legible (regresión visual conocida y aceptada, R6 §8). (2026-05-26)
+- [x] El toast NO tiene botón X visible (`dismissible={false}`) y NO
+      auto-desaparece — sólo el redirect lo descarta. (2026-05-26)
+
+> Hallazgos del smoke F (2026-05-26):
+> (1) El path real es `/property/<id>/schedule`, NO `/visit` — el spec del
+> smoke estaba desactualizado. Path corregido inline.
+> (2) Dario propuso URLs amigables (`/property/<slug>` en vez de UUID) —
+> agregado al backlog como feature `property_pretty_urls`.
 
 **Migración ResendInvitationButton (smoke G):**
 
