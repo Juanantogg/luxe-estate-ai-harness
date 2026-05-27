@@ -27,7 +27,7 @@ export function HeroSearch() {
       <button
         type="submit"
         aria-label="Buscar"
-        className="absolute top-1/2 right-2 inline-flex h-10 -translate-y-1/2 items-center justify-center rounded bg-primary px-4 text-sm font-medium text-on-primary shadow-soft transition-colors hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none"
+        className="absolute top-1/2 right-2 inline-flex h-10 -translate-y-1/2 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-on-primary shadow-soft transition-colors hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none"
       >
         Buscar
       </button>

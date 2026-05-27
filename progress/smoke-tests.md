@@ -113,6 +113,21 @@ Spec original tenía 17 pasos end-to-end, diferidos hasta que existiera
       empty state (decisión cerrada: aceptable).
 - [ ] Navegar a `/?type=villa` → idem, sin duplicados.
 
+### `home_hero_visual_polish` (cerrada 2026-05-27)
+
+- [ ] Navegar a `/`: el botón "Buscar" del HeroSearch tiene radius
+      `rounded-lg` (más redondo que antes); ya no se ve cuadrado pegado
+      al input `rounded-xl`. La diferencia residual (lg vs xl) es
+      intencional (jerarquía visual).
+- [ ] `ListingTypeToggle` (Todas/Comprar/Rentar): la opción activa
+      ahora es mosque verde (`bg-primary`), no negro Nordic. Click
+      entre opciones cambia el color verde correctamente.
+- [ ] `PropertyTypeChips` (Todas/Casa/Apartamento/Villa/Penthouse):
+      el chip activo también pasa a mosque verde. Coherente con el
+      toggle de arriba.
+- [ ] `/dev/ui` sección Chips: el primer chip (variant="selected")
+      se ve en mosque, no en negro. Tab al chip → focus ring visible.
+
 ### `admin_user_directory` (cerrada 2026-05-26)
 
 Verificación manual original más la del fix 0026 de hoy.

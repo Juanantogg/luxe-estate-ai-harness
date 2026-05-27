@@ -17,7 +17,7 @@ export interface ChipProps extends React.ButtonHTMLAttributes<HTMLButtonElement>
 const VARIANT_CLASSES: Record<ChipVariant, string> = {
   default:
     'bg-surface border border-divider-soft text-muted hover:text-on-surface hover:border-primary',
-  selected: 'bg-surface-inverse text-on-surface-inverse shadow-soft border border-transparent',
+  selected: 'bg-primary text-on-primary shadow-soft border border-transparent',
   outline:
     'bg-transparent border border-outline text-on-surface hover:bg-primary-soft hover:border-primary hover:text-primary',
 };

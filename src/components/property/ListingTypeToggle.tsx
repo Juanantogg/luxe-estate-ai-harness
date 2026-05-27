@@ -57,7 +57,7 @@ export function ListingTypeToggle({ className }: ListingTypeToggleProps) {
               'rounded px-4 py-1.5 text-sm font-medium transition-colors',
               'focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none',
               isActive
-                ? 'bg-surface-inverse text-on-surface-inverse shadow-soft'
+                ? 'bg-primary text-on-primary shadow-soft'
                 : 'text-muted hover:text-on-surface',
             )}
           >
