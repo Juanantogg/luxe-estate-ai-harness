@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { emailSchema, loginPasswordSchema } from '@/lib/auth/schemas';
 
 /**
  * Schemas zod para el perfil del usuario.
@@ -43,3 +44,20 @@ export const avatarFileSchema = z
   );
 
 export type AvatarFile = z.infer<typeof avatarFileSchema>;
+
+/**
+ * Schema para el form de cambio de email. Reusa `emailSchema` (validación
+ * de formato + longitud) y `loginPasswordSchema` (solo presencia — no
+ * complejidad: validamos contra la contraseña ACTUAL del user, que puede
+ * ser legacy y no cumplir las reglas actuales de `strongPasswordSchema`).
+ *
+ * El check `same_email` (email nuevo distinto al actual) NO va aquí:
+ * necesita la sesión para conocer el email vigente. Se hace inline en la
+ * Server Action `changeEmail` tras leer `auth.getUser()`.
+ */
+export const changeEmailSchema = z.object({
+  email: emailSchema,
+  password: loginPasswordSchema,
+});
+
+export type ChangeEmailInput = z.infer<typeof changeEmailSchema>;

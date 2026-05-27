@@ -1,11 +1,13 @@
 import { redirect } from 'next/navigation';
 import { FavoritesEmptyState } from '@/components/favorites';
 import {
+  EmailChangedFlash,
   ProfileHeader,
   ProfileTabs,
   SettingsPanel,
   VisitsList,
   parseProfileTab,
+  type EmailChangedKind,
   type ProfileTab,
 } from '@/components/profile';
 import { PropertyCard } from '@/components/property';
@@ -47,12 +49,20 @@ interface ProfilePageProps {
 export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   const sp = await searchParams;
   const tab = parseProfileTab(sp.tab);
+  const emailChangedKind = parseEmailChangedFlag(sp.email_changed);
 
   const session = await getSessionAndProfile();
   if (!session?.user) {
     redirect(`/login?next=${encodeURIComponent('/profile')}`);
   }
   const { user, profile } = session;
+
+  // Detección OAuth-only: si el user no tiene identity con provider
+  // `email`, no tiene password y por lo tanto no puede re-autenticarse
+  // para cambiar el correo. La feature `change_email_flow` deshabilita
+  // el botón "Cambiar" en este caso (defense-in-depth: la action
+  // también rechaza con `oauth_only`).
+  const canChangeEmail = user.identities?.some((i) => i.provider === 'email') ?? false;
 
   if (!profile) {
     // Caso edge: el trigger handle_new_user no creó el profile. No queremos
@@ -104,10 +114,27 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
 
         {tab === 'saved' && <SavedPanel favorites={favorites} />}
         {tab === 'visits' && <VisitsList buckets={visits} />}
-        {tab === 'settings' && <SettingsPanel email={profile.email} />}
+        {tab === 'settings' && (
+          <SettingsPanel email={profile.email} canChangeEmail={canChangeEmail} />
+        )}
       </section>
+
+      {tab === 'settings' && <EmailChangedFlash kind={emailChangedKind} />}
     </div>
   );
+}
+
+/**
+ * Parsea estrictamente `searchParams.email_changed`. Cualquier valor
+ * fuera de los tres flags conocidos (`1` / `pending` / `error`) devuelve
+ * `null` para evitar que un query param manipulado dispare el toast.
+ */
+function parseEmailChangedFlag(raw: string | string[] | undefined): EmailChangedKind {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (value === '1') return 'success';
+  if (value === 'pending') return 'pending';
+  if (value === 'error') return 'error';
+  return null;
 }
 
 function SavedPanel({ favorites }: { favorites: PropertyForCard[] }) {

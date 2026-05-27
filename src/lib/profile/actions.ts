@@ -1,8 +1,15 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { mapSupabaseError } from '@/lib/auth/errors';
+import { getSiteUrl } from '@/lib/auth/site-url';
 import { createClient } from '@/lib/supabase/server';
-import { AVATAR_MIME_TO_EXT, avatarFileSchema, type AvatarMime } from './schemas';
+import {
+  AVATAR_MIME_TO_EXT,
+  avatarFileSchema,
+  changeEmailSchema,
+  type AvatarMime,
+} from './schemas';
 
 /**
  * Server Actions del perfil del usuario:
@@ -180,5 +187,187 @@ export async function removeAvatar(): Promise<RemoveAvatarResult> {
   revalidatePath('/profile');
   revalidatePath('/');
 
+  return { ok: true };
+}
+
+/**
+ * Códigos de error específicos del flujo de cambio de email.
+ *
+ * Algunos se solapan con `AuthErrorCode` (ej. `invalid_input`,
+ * `rate_limited`, `session_missing`, `unknown`) y se reusan los mensajes
+ * del catálogo central. Los códigos nuevos (`same_email`, `oauth_only`,
+ * `invalid_password`, `email_in_use`) son específicos de este flujo y
+ * viven INLINE en esta action (decisión spec §4): no se promueven a
+ * `lib/auth/errors.ts` mientras no aparezca un segundo call site.
+ */
+export type ChangeEmailErrorCode =
+  | 'invalid_input'
+  | 'invalid_password'
+  | 'email_in_use'
+  | 'same_email'
+  | 'rate_limit'
+  | 'session_missing'
+  | 'oauth_only'
+  | 'unknown';
+
+export type ChangeEmailResult =
+  | { ok: true }
+  | { ok: false; error: { code: ChangeEmailErrorCode; message: string } };
+
+function firstZodError(error: { issues: Array<{ message: string }> }): string {
+  return error.issues[0]?.message ?? 'Revisa los campos marcados.';
+}
+
+/**
+ * Solicita un cambio de email para el usuario actual.
+ *
+ * Flujo:
+ *  1. Valida el form con zod.
+ *  2. Lee la sesión y aborta si falta.
+ *  3. Re-autentica con `signInWithPassword(emailViejo, password)` —
+ *     Supabase no expone `reauthenticate()` para email/password, así que
+ *     verificamos la identidad con un login completo. Usar el MISMO
+ *     cliente preserva la sesión actual: si las credenciales son válidas,
+ *     `signInWithPassword` solo renueva el JWT.
+ *  4. Defensa OAuth-only: si el user no tiene identity `email`, devuelve
+ *     `oauth_only`. El botón de la UI ya está deshabilitado para este
+ *     caso, pero alguien podría POSTear el form directo.
+ *  5. Defensa `same_email`: case-insensitive contra `user.email` actual.
+ *  6. Llama `auth.updateUser({ email })` con `emailRedirectTo` al route
+ *     handler `/auth/email-change`. Supabase envía link(s) de
+ *     confirmación; con "Secure email change" ON (default Cloud) manda
+ *     uno al email viejo Y otro al nuevo, y el cambio solo aplica cuando
+ *     ambos se confirman.
+ *
+ * Importante:
+ *  - NO se invoca `revalidatePath` ni `redirect`: el email aún no cambió.
+ *  - NO se loguea email ni password en `console.warn` — solo
+ *    `error.code` / `error.status` de Supabase para no filtrar PII.
+ */
+export async function changeEmail(formData: FormData): Promise<ChangeEmailResult> {
+  const parsed = changeEmailSchema.safeParse({
+    email: formData.get('email'),
+    password: formData.get('password'),
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: { code: 'invalid_input', message: firstZodError(parsed.error) },
+    };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return {
+      ok: false,
+      error: {
+        code: 'session_missing',
+        message: 'Tu sesión expiró. Vuelve a iniciar sesión.',
+      },
+    };
+  }
+
+  // Defensa OAuth-only: la UI ya bloquea el botón, pero el form podría
+  // POSTearse manipulado desde DevTools.
+  const hasEmailIdentity = user.identities?.some((i) => i.provider === 'email') ?? false;
+  if (!hasEmailIdentity) {
+    return {
+      ok: false,
+      error: {
+        code: 'oauth_only',
+        message:
+          'Tu cuenta usa inicio de sesión con Google. No es posible cambiar el correo desde acá por ahora.',
+      },
+    };
+  }
+
+  // Defensa same_email (case-insensitive + trim implícito por emailSchema).
+  const currentEmail = (user.email ?? '').toLowerCase();
+  const newEmail = parsed.data.email.toLowerCase();
+  if (currentEmail === newEmail) {
+    return {
+      ok: false,
+      error: {
+        code: 'same_email',
+        message: 'El correo nuevo debe ser distinto al actual.',
+      },
+    };
+  }
+
+  // Re-autenticación. Si las credenciales son válidas, el JWT se renueva
+  // sin invalidar la sesión actual. Si no, el cliente devuelve error sin
+  // tocar la sesión existente.
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: currentEmail,
+    password: parsed.data.password,
+  });
+  if (signInError) {
+    const mapped = mapSupabaseError(signInError);
+    if (mapped.code === 'invalid_credentials') {
+      return {
+        ok: false,
+        error: { code: 'invalid_password', message: 'Contraseña incorrecta.' },
+      };
+    }
+    if (mapped.code === 'rate_limited') {
+      return {
+        ok: false,
+        error: {
+          code: 'rate_limit',
+          message: 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.',
+        },
+      };
+    }
+    console.warn('[changeEmail] re-auth failed', {
+      code: signInError.code ?? null,
+      status: signInError.status ?? null,
+    });
+    return {
+      ok: false,
+      error: { code: 'unknown', message: 'Algo salió mal. Inténtalo de nuevo.' },
+    };
+  }
+
+  // Pedimos el cambio. Supabase envía los emails de confirmación.
+  const { error: updateError } = await supabase.auth.updateUser(
+    { email: parsed.data.email },
+    { emailRedirectTo: `${getSiteUrl()}/auth/email-change` },
+  );
+  if (updateError) {
+    const mapped = mapSupabaseError(updateError);
+    if (mapped.code === 'email_taken') {
+      return {
+        ok: false,
+        error: {
+          code: 'email_in_use',
+          message: 'Ya existe una cuenta con ese correo. Elige otro.',
+        },
+      };
+    }
+    if (mapped.code === 'rate_limited') {
+      return {
+        ok: false,
+        error: {
+          code: 'rate_limit',
+          message: 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.',
+        },
+      };
+    }
+    console.warn('[changeEmail] updateUser failed', {
+      code: updateError.code ?? null,
+      status: updateError.status ?? null,
+    });
+    return {
+      ok: false,
+      error: { code: 'unknown', message: 'Algo salió mal. Inténtalo de nuevo.' },
+    };
+  }
+
+  // NO revalidamos /profile: el email todavía no cambió en la DB. Solo
+  // cambiará cuando el user confirme los link(s) y el route handler
+  // `/auth/email-change` haga el code-exchange.
   return { ok: true };
 }

@@ -23,3 +23,9 @@ export type { SettingsPanelProps } from './SettingsPanel';
 
 export { NotificationsToggle } from './NotificationsToggle';
 export type { NotificationsToggleProps } from './NotificationsToggle';
+
+export { ChangeEmailDialog } from './ChangeEmailDialog';
+export type { ChangeEmailDialogProps } from './ChangeEmailDialog';
+
+export { EmailChangedFlash } from './EmailChangedFlash';
+export type { EmailChangedFlashProps, EmailChangedKind } from './EmailChangedFlash';

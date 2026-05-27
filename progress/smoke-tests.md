@@ -105,7 +105,7 @@ son la primera validación visual.
 - [ ] Botón "Marcar todas como leídas" → todos los items pierden el dot
       sin cerrar el panel; el dot rojo del bell se apaga.
 - [ ] Insertar notif vía SQL (`insert into notifications (recipient_id,
-  type, title) values (auth.uid(), 'system', 'Test');`) → con la
+type, title) values (auth.uid(), 'system', 'Test');`) → con la
       pestaña visible y el panel abierto, esperar 30s → la notif aparece
       sin recargar.
 - [ ] Pestaña inactiva 1 min → fetch pausado (verificar en Network tab
@@ -211,6 +211,85 @@ ResendInvitationButton).
       del botón ocupando ~20px de alto).
 - [ ] El botón queda disabled tras success durante los ~4s → al cerrar
       el toast (auto-dismiss o manual) se re-habilita.
+
+### `change_email_flow` (cerrada 2026-05-26)
+
+Smoke tests del spec §12. La feature toca auth, race condition entre
+email viejo y nuevo, y un route handler nuevo (`/auth/email-change`).
+
+**A. Modal y validación cliente:**
+
+- [ ] Login como `elena@luxe-estate.test` (user con identity email) →
+      `/profile?tab=settings` → botón "Cambiar" visible y enabled.
+- [ ] Click "Cambiar" → modal abre con correo actual prellenado en
+      readonly, otros campos vacíos, focus en "Correo nuevo".
+- [ ] Submit con email malformado (`foo`) → banner "Revisa los campos
+      marcados.", desaparece al editar el campo.
+- [ ] Submit con email igual al actual → banner `same_email`.
+- [ ] Submit con email mismo case-different (mayúsculas) → banner
+      `same_email`.
+- [ ] Submit con password vacío → banner "La contraseña es obligatoria."
+
+**B. Server Action:**
+
+- [ ] Submit con password incorrecto → banner "Contraseña incorrecta."
+- [ ] Submit con email de otro user del seed (ej.
+      `marcus@luxe-estate.test`) → banner "Ya existe una cuenta con
+      ese correo. Elige otro."
+- [ ] Submit OK con email nuevo (yopmail nuevo) → form se reemplaza por
+      bloque "Revisa tu correo nuevo" con los dos emails listados.
+- [ ] Tras OK, **la sesión sigue activa**: navegar a `/` y volver a
+      `/profile` sin bounce a `/login`.
+- [ ] Tras OK, `auth.users.email` SIGUE siendo el viejo (verificar SQL
+      vía MCP). `profiles.email` también.
+- [ ] Spam: clickear submit 5+ veces seguidas → eventual 429 → banner
+      `rate_limit`.
+
+**C. Race y cierre del modal:**
+
+- [ ] Cancel/Close/Escape durante `loading` → no cierra el modal hasta
+      que la action termine.
+- [ ] Cancel/Escape en `success` → modal cierra normalmente.
+- [ ] Auto-cierre del modal a los 8s en `success` (esperar sin
+      interacción).
+
+**D. Route handler y flash:**
+
+- [ ] Clickear el link del email **nuevo** (yopmail) → aterriza en
+      `/profile?tab=settings&email_changed=pending` (si secure email
+      change ON) → toast warning "Confirmaste un link..." → tras 6s,
+      query param limpio.
+- [ ] Clickear el link del email **viejo** → idem, otro toast `pending`.
+- [ ] Tras AMBOS clicks: refresh `/profile` → ver email **nuevo** en
+      el field readonly. `auth.users.email` y `profiles.email`
+      coinciden con el nuevo (verifica trigger 0027 funcionando).
+- [ ] El segundo de los dos clicks aterriza en `?email_changed=1` →
+      toast success "Correo actualizado correctamente."
+
+**E. Error y casos negativos del handler:**
+
+- [ ] Esperar 24h con un link sin clickear → click → aterriza en `/`
+      con toast del listener (`invite_error_landing`), no en
+      `/profile?tab=settings`.
+- [ ] Clickear un link y luego clickearlo de nuevo (ya consumido) →
+      handler captura el error → `/profile?tab=settings&email_changed=error`
+      → toast warning "No pudimos confirmar el cambio..."
+
+**F. OAuth-only:**
+
+- [ ] Login con Google con una cuenta nueva que NUNCA tuvo password →
+      `/profile?tab=settings` → botón "Cambiar" disabled con tooltip y
+      helper text.
+- [ ] (Defense) Inspeccionar el botón en DevTools, removerle `disabled`
+      manualmente y submit con cualquier email/password → action devuelve
+      `oauth_only` → banner "Tu cuenta usa inicio de sesión con Google..."
+
+**G. Login con email nuevo:**
+
+- [ ] Tras confirmar ambos links, logout y login con el email nuevo +
+      misma contraseña → entra al perfil con sesión válida.
+- [ ] Logout y intentar login con el email viejo → error "Email o
+      contraseña incorrectos."
 
 ---
 

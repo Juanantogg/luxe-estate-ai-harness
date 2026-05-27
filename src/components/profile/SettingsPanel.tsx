@@ -1,21 +1,28 @@
-import { Icon } from '@/components/ui';
+import { EmailFieldWithChangeButton } from './EmailFieldWithChangeButton';
 import { NotificationsToggle } from './NotificationsToggle';
 
 export interface SettingsPanelProps {
   email: string;
+  /**
+   * Si `false` (cuenta OAuth-only sin password), el field email muestra
+   * el botón "Cambiar" deshabilitado con tooltip + helper text
+   * específico. Si `true`, el botón abre el `ChangeEmailDialog`.
+   * Detección server-side desde `user.identities`.
+   */
+  canChangeEmail: boolean;
 }
 
 /**
  * Tab "Preferencias y ajustes". Replica del bloque "Account Preferences" del
  * mockup: 2 fields en grid (1 col en <md, 2 cols en md+).
  *
- * - **Email**: readonly con ícono + botón "Cambiar" deshabilitado.
- *   El flujo real de cambio de email se implementa en la feature
- *   `change_email_flow` (ya agregada al backlog). Hasta entonces el control
- *   se pinta disabled con tooltip "Próximamente" para no romper el layout.
+ * - **Email**: readonly con ícono + botón "Cambiar". El botón abre el
+ *   `ChangeEmailDialog` (Client Component aislado en
+ *   `EmailFieldWithChangeButton`) cuando `canChangeEmail === true`. Si
+ *   `false`, se renderiza disabled con tooltip — caso OAuth-only.
  * - **Notificaciones**: toggle placeholder sin persistencia.
  */
-export function SettingsPanel({ email }: SettingsPanelProps) {
+export function SettingsPanel({ email, canChangeEmail }: SettingsPanelProps) {
   return (
     <section
       aria-labelledby="settings-heading"
@@ -29,37 +36,7 @@ export function SettingsPanel({ email }: SettingsPanelProps) {
       </header>
 
       <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div>
-          <label
-            htmlFor="settings-email"
-            className="mb-2 block text-xs font-bold tracking-wider text-muted uppercase"
-          >
-            Dirección de correo
-          </label>
-          <div className="flex h-[50px] items-center gap-3 rounded-lg border border-outline bg-background px-3">
-            <Icon name="mail" size="sm" className="text-muted" />
-            <input
-              id="settings-email"
-              type="email"
-              value={email}
-              readOnly
-              aria-readonly="true"
-              className="flex-1 border-none bg-transparent text-sm text-on-surface outline-none placeholder:text-muted"
-            />
-            <button
-              type="button"
-              disabled
-              title="Próximamente — el flujo de cambio de email se implementa en la feature change_email_flow"
-              aria-label="Cambiar email (próximamente)"
-              className="cursor-not-allowed text-xs font-medium text-muted disabled:opacity-60"
-            >
-              Cambiar
-            </button>
-          </div>
-          <p className="mt-1 text-xs text-muted">
-            El cambio de email estará disponible próximamente.
-          </p>
-        </div>
+        <EmailFieldWithChangeButton email={email} canChangeEmail={canChangeEmail} />
 
         <div>
           <label
