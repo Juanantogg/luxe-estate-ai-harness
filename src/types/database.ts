@@ -4,7 +4,7 @@
  * No editar a mano. Para regenerar:
  *   pnpm db:types
  *
- * Última regeneración: 2026-05-26 (mig 0020 + 0021 + 0022).
+ * Última regeneración: 2026-05-26 (mig 0020 + 0021 + 0022 + 0023).
  */
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
@@ -223,6 +223,7 @@ export type Database = {
           email: string;
           full_name: string | null;
           id: string;
+          invitation_status: Database['public']['Enums']['invitation_status_t'];
           is_active: boolean;
           member_since: string;
           phone: string | null;
@@ -237,6 +238,7 @@ export type Database = {
           email: string;
           full_name?: string | null;
           id: string;
+          invitation_status?: Database['public']['Enums']['invitation_status_t'];
           is_active?: boolean;
           member_since?: string;
           phone?: string | null;
@@ -251,6 +253,7 @@ export type Database = {
           email?: string;
           full_name?: string | null;
           id?: string;
+          invitation_status?: Database['public']['Enums']['invitation_status_t'];
           is_active?: boolean;
           member_since?: string;
           phone?: string | null;
@@ -519,6 +522,7 @@ export type Database = {
         | 'wine_cellar'
         | 'ev_charging'
         | 'central_heating';
+      invitation_status_t: 'pending' | 'accepted';
       listing_status: 'draft' | 'active' | 'pending' | 'sold' | 'rented' | 'archived';
       listing_type: 'sale' | 'rent';
       notification_type:
@@ -677,6 +681,7 @@ export const Constants = {
         'ev_charging',
         'central_heating',
       ],
+      invitation_status_t: ['pending', 'accepted'],
       listing_status: ['draft', 'active', 'pending', 'sold', 'rented', 'archived'],
       listing_type: ['sale', 'rent'],
       notification_type: [

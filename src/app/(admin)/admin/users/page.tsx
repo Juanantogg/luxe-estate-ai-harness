@@ -9,10 +9,11 @@ import {
 import { DashboardPagination } from '@/components/dashboard';
 import { getSessionAndProfile } from '@/lib/auth/get-session';
 import {
+  getPendingInvitationCount,
   listAdminUsers,
   parseDirectoryPageParam,
   parseDirectoryQueryParam,
-  parseDirectoryRoleParam,
+  parseDirectoryTabParam,
 } from '@/lib/admin/queries';
 import { createClient } from '@/lib/supabase/server';
 
@@ -23,13 +24,13 @@ const PAGE_SIZE = 20;
 type SearchParamsValue = string | string[] | undefined;
 type SearchParams = Promise<{
   q?: SearchParamsValue;
-  role?: SearchParamsValue;
+  tab?: SearchParamsValue;
   page?: SearchParamsValue;
 }>;
 
 function searchParamsToPlainRecord(sp: {
   q?: SearchParamsValue;
-  role?: SearchParamsValue;
+  tab?: SearchParamsValue;
   page?: SearchParamsValue;
 }): Record<string, string> {
   const out: Record<string, string> = {};
@@ -62,19 +63,22 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
   }
 
   const q = parseDirectoryQueryParam(sp.q);
-  const role = parseDirectoryRoleParam(sp.role);
+  const tab = parseDirectoryTabParam(sp.tab);
   const page = parseDirectoryPageParam(sp.page);
 
   const supabase = await createClient();
-  const { items, total } = await listAdminUsers(supabase, {
-    q,
-    role,
-    page,
-    pageSize: PAGE_SIZE,
-  });
+  const [{ items, total }, pendingCount] = await Promise.all([
+    listAdminUsers(supabase, {
+      q,
+      tab,
+      page,
+      pageSize: PAGE_SIZE,
+    }),
+    getPendingInvitationCount(supabase),
+  ]);
 
   const hasResults = items.length > 0;
-  const hasFilters = q.length > 0 || role !== 'all';
+  const hasFilters = q.length > 0 || tab !== 'all';
   const showPagination = total > PAGE_SIZE;
   const currentSpRecord = searchParamsToPlainRecord(sp);
 
@@ -97,8 +101,8 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
       </header>
 
       {/* Tabs */}
-      <nav aria-label="Filtrar por rol" className="mb-6">
-        <UserDirectoryTabs currentRole={role} currentQuery={q} />
+      <nav aria-label="Filtrar usuarios" className="mb-6">
+        <UserDirectoryTabs currentTab={tab} currentQuery={q} pendingCount={pendingCount} />
       </nav>
 
       {/* Tabla / empty */}

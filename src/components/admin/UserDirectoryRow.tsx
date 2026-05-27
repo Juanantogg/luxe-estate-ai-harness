@@ -4,7 +4,7 @@ import { formatSalesShort } from '@/lib/admin/format';
 import { cn } from '@/lib/utils/cn';
 import { ChangeRoleMenu } from './ChangeRoleMenu';
 import { UserRoleBadge } from './UserRoleBadge';
-import { UserStatusIndicator } from './UserStatusIndicator';
+import { UserStatusIndicator, deriveUserStatus } from './UserStatusIndicator';
 
 export interface UserDirectoryRowProps {
   user: AdminUserRow;
@@ -23,14 +23,23 @@ function shortId(id: string): string {
  * - Mobile (<md): card stacked vertical.
  * - md+: grid 12-col (5 / 3 / 2 / 2).
  *
- * Cuando `user.id === callerId` (decisión C3):
- *  - La fila se pinta con `bg-surface-soft` (hint-green) sin hover override.
- *  - Reemplaza `ChangeRoleMenu` por un `Button` disabled con tooltip.
+ * Render del bloque de acciones:
+ *  - Si `user.id === callerId` (decisión C3): fila pintada con
+ *    `bg-surface-soft` (hint-green) sin hover override; botón disabled
+ *    "No editable".
+ *  - Si `status === 'pending'`: botón disabled "Pendiente" — el target
+ *    todavía no aceptó la invitación. No se pinta background especial
+ *    (decisión §5.2/§15 del spec); los canales visuales son el icono
+ *    `mail_outline` warning + Avatar `away` + botón disabled.
+ *  - En cualquier otro caso: `ChangeRoleMenu` normal.
  */
 export function UserDirectoryRow({ user, callerId }: UserDirectoryRowProps) {
   const isCaller = user.id === callerId;
   const displayName = user.full_name?.trim() || user.email;
   const titleId = `admin-user-row-${user.id}`;
+  const status = deriveUserStatus(user);
+  const avatarStatus: 'online' | 'away' | 'offline' =
+    status === 'pending' ? 'away' : status === 'active' ? 'online' : 'offline';
 
   const liClassName = cn(
     'border-b border-divider-soft last:border-b-0 transition-colors',
@@ -43,7 +52,7 @@ export function UserDirectoryRow({ user, callerId }: UserDirectoryRowProps) {
       src={user.avatar_url ?? undefined}
       name={displayName}
       alt={`Avatar de ${displayName}`}
-      status={user.is_active ? 'online' : 'offline'}
+      status={avatarStatus}
     />
   );
 
@@ -65,7 +74,7 @@ export function UserDirectoryRow({ user, callerId }: UserDirectoryRowProps) {
   const roleStatusNode = (
     <div className="flex flex-wrap items-center gap-3">
       <UserRoleBadge role={user.role} />
-      <UserStatusIndicator isActive={user.is_active} />
+      <UserStatusIndicator status={status} />
     </div>
   );
 
@@ -95,6 +104,18 @@ export function UserDirectoryRow({ user, callerId }: UserDirectoryRowProps) {
       fullWidth
     >
       No editable
+    </Button>
+  ) : status === 'pending' ? (
+    <Button
+      variant="secondary"
+      size="sm"
+      disabled
+      aria-disabled="true"
+      title="El usuario todavía no aceptó la invitación"
+      className="md:w-auto"
+      fullWidth
+    >
+      Pendiente
     </Button>
   ) : (
     <ChangeRoleMenu

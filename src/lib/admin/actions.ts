@@ -86,6 +86,57 @@ async function requireAdminCaller(): Promise<
 }
 
 /**
+ * Verifica que el target NO esté en estado de invitación pendiente.
+ *
+ * Si lo está, devuelve un `ActionResult` `invalid` listo para retornar.
+ * Si la fila no existe, deja pasar — el lookup principal de cada action
+ * se encarga del `not_found` con su mensaje propio.
+ *
+ * Se invoca DESPUÉS de `requireAdminCaller` y del self-target guard, pero
+ * ANTES del lookup principal del target. No se invoca desde `inviteUser`
+ * (decisión §4.3 del spec).
+ */
+async function requireAcceptedTarget(
+  targetUserId: string,
+): Promise<{ ok: true } | { ok: false; result: Extract<ActionResult, { ok: false }> }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('invitation_status')
+    .eq('id', targetUserId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[requireAcceptedTarget] lookup failed:', error);
+    return {
+      ok: false,
+      result: {
+        ok: false,
+        error: {
+          code: 'server',
+          message: 'No se pudo validar el estado del usuario.',
+        },
+      },
+    };
+  }
+  if (!data) return { ok: true };
+
+  if (data.invitation_status === 'pending') {
+    return {
+      ok: false,
+      result: {
+        ok: false,
+        error: {
+          code: 'invalid',
+          message: 'El usuario invitado todavía no aceptó la invitación.',
+        },
+      },
+    };
+  }
+  return { ok: true };
+}
+
+/**
  * Cambia el rol de otro usuario. El trigger DB `notify_profile_role_or_status_change`
  * (mig 0020) se encarga de notificar al target — esta action no toca
  * `notifications` directamente.
@@ -105,6 +156,9 @@ export async function changeRole(input: ChangeRoleInput): Promise<ActionResult> 
       error: { code: 'self_target', message: 'No puedes cambiar tu propio rol.' },
     };
   }
+
+  const accepted = await requireAcceptedTarget(parsed.data.targetUserId);
+  if (!accepted.ok) return accepted.result;
 
   const supabase = await createClient();
 
@@ -157,6 +211,9 @@ export async function suspendUser(input: SuspendUserInput): Promise<ActionResult
       error: { code: 'self_target', message: 'No puedes suspenderte a ti mismo.' },
     };
   }
+
+  const accepted = await requireAcceptedTarget(parsed.data.targetUserId);
+  if (!accepted.ok) return accepted.result;
 
   const supabase = await createClient();
 
@@ -227,6 +284,9 @@ export async function reactivateUser(input: ReactivateUserInput): Promise<Action
       error: { code: 'self_target', message: 'No puedes reactivarte a ti mismo.' },
     };
   }
+
+  const accepted = await requireAcceptedTarget(parsed.data.targetUserId);
+  if (!accepted.ok) return accepted.result;
 
   const supabase = await createClient();
 

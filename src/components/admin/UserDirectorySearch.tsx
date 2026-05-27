@@ -10,8 +10,8 @@ export interface UserDirectorySearchProps {
 
 /**
  * Search input del directorio admin. Sin debounce automático: submit
- * explícito por Enter o blur (decisión §14 del spec). Preserva el filtro
- * de rol activo (`?role=`) al re-armar la URL.
+ * explícito por Enter o blur (decisión §14 del spec). Preserva la tab
+ * activa (`?tab=`) al re-armar la URL via `searchParams.toString()`.
  *
  * Botón "Limpiar" aparece cuando hay query y dispara una navegación a la
  * URL sin `?q=`.
