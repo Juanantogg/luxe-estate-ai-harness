@@ -106,43 +106,46 @@ Spec original tenía 17 pasos end-to-end, diferidos hasta que existiera
 
 ### `home_exclude_featured_from_new_in_market` (cerrada 2026-05-27)
 
-- [ ] Navegar a `/` (sin filtros) → ninguna property se repite entre
-      "Colecciones destacadas" y "Nuevas en el mercado".
-- [ ] Navegar a `/?listing=rent` → idem, sin duplicados; si las únicas
+- [x] Navegar a `/` (sin filtros) → ninguna property se repite entre
+      "Colecciones destacadas" y "Nuevas en el mercado". (2026-05-27)
+- [x] Navegar a `/?listing=rent` → idem, sin duplicados; si las únicas
       properties de rent eran featured, "Nuevas en el mercado" muestra
-      empty state (decisión cerrada: aceptable).
-- [ ] Navegar a `/?type=villa` → idem, sin duplicados.
+      empty state (decisión cerrada: aceptable). (2026-05-27)
+- [x] Navegar a `/?type=villa` → idem, sin duplicados. (2026-05-27)
 
 ### `home_hero_visual_polish` (cerrada 2026-05-27)
 
-- [ ] Navegar a `/`: el botón "Buscar" del HeroSearch tiene radius
+- [x] Navegar a `/`: el botón "Buscar" del HeroSearch tiene radius
       `rounded-lg` (más redondo que antes); ya no se ve cuadrado pegado
       al input `rounded-xl`. La diferencia residual (lg vs xl) es
-      intencional (jerarquía visual).
-- [ ] `ListingTypeToggle` (Todas/Comprar/Rentar): la opción activa
+      intencional (jerarquía visual). (2026-05-27)
+- [x] `ListingTypeToggle` (Todas/Comprar/Rentar): la opción activa
       ahora es mosque verde (`bg-primary`), no negro Nordic. Click
-      entre opciones cambia el color verde correctamente.
-- [ ] `PropertyTypeChips` (Todas/Casa/Apartamento/Villa/Penthouse):
+      entre opciones cambia el color verde correctamente. (2026-05-27)
+- [x] `PropertyTypeChips` (Todas/Casa/Apartamento/Villa/Penthouse):
       el chip activo también pasa a mosque verde. Coherente con el
-      toggle de arriba.
-- [ ] `/dev/ui` sección Chips: el primer chip (variant="selected")
+      toggle de arriba. (2026-05-27)
+- [x] `/dev/ui` sección Chips: el primer chip (variant="selected")
       se ve en mosque, no en negro. Tab al chip → focus ring visible.
+      (2026-05-27)
 
 ### `topnav_dead_links_cleanup` (cerrada 2026-05-27)
 
 Matriz de links esperada por variant/sesión:
 
-- [ ] TopNav variant `app` SIN sesión: solo "Comprar" y "Rentar"
+- [x] TopNav variant `app` SIN sesión: solo "Comprar" y "Rentar"
       visibles (sin "Vender" ni "Guardados"). Mobile drawer respeta
-      lo mismo.
-- [ ] TopNav variant `app` CON sesión (elena): "Comprar", "Rentar",
-      "Guardados" (3 links). Sin "Vender".
-- [ ] TopNav variant `dashboard` (marcus o admin): "Dashboard",
+      lo mismo. (2026-05-27)
+- [x] TopNav variant `app` CON sesión (elena): "Comprar", "Rentar",
+      "Guardados" (3 links). Sin "Vender". (2026-05-27)
+- [x] TopNav variant `dashboard` (marcus o admin): "Dashboard",
       "Propiedades" (2 links). Sin "Inquilinos" ni "Finanzas".
-- [ ] TopNav variant `admin` (admin@luxe-estate.test): "Dashboard",
+      (2026-05-27)
+- [x] TopNav variant `admin` (admin@luxe-estate.test): "Dashboard",
       "Usuarios" (2 links). Sin "Propiedades" ni "Consultas".
-- [ ] Mobile (≤640px): drawer hamburguesa muestra los mismos links
-      filtrados (no aparecen los muertos).
+      (2026-05-27)
+- [x] Mobile (≤640px): drawer hamburguesa muestra los mismos links
+      filtrados (no aparecen los muertos). (2026-05-27)
 
 ### `admin_user_directory` (cerrada 2026-05-26)
 
