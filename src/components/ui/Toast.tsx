@@ -43,24 +43,24 @@ interface VariantStyle {
 
 const VARIANT_STYLES: Record<ToastVariant, VariantStyle> = {
   success: {
-    bg: 'bg-success-soft',
-    text: 'text-success',
+    bg: 'bg-success',
+    text: 'text-on-primary',
     ring: 'focus-visible:ring-success',
     icon: 'check_circle',
     role: 'status',
     live: 'polite',
   },
   warning: {
-    bg: 'bg-warning-soft',
-    text: 'text-warning',
+    bg: 'bg-warning',
+    text: 'text-on-primary',
     ring: 'focus-visible:ring-warning',
     icon: 'warning',
     role: 'status',
     live: 'polite',
   },
   danger: {
-    bg: 'bg-danger-soft',
-    text: 'text-danger',
+    bg: 'bg-danger',
+    text: 'text-on-primary',
     ring: 'focus-visible:ring-danger',
     icon: 'error',
     role: 'alert',
@@ -123,14 +123,14 @@ export function Toast({
       role={styles.role}
       aria-live={styles.live}
       className={cn(
-        'fixed bottom-20 left-1/2 z-50 inline-flex -translate-x-1/2 items-start gap-2',
+        'fixed bottom-20 left-1/2 z-50 inline-flex -translate-x-1/2 items-center gap-2',
         'rounded-lg px-4 py-3 shadow-soft',
         'max-w-[calc(100%-2rem)] sm:max-w-md',
         styles.bg,
         styles.text,
       )}
     >
-      <Icon name={iconName} size="sm" className="mt-0.5 shrink-0" />
+      <Icon name={iconName} size="sm" className="shrink-0" />
       <p className="text-sm leading-snug font-medium">{message}</p>
       {dismissible && (
         <button
@@ -138,7 +138,7 @@ export function Toast({
           onClick={onClose}
           aria-label="Cerrar aviso"
           className={cn(
-            'ml-1 shrink-0 rounded p-0.5 transition-opacity hover:opacity-70',
+            'ml-1 shrink-0 cursor-pointer rounded p-0.5 transition-opacity hover:opacity-70',
             'focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none',
             styles.ring,
           )}

@@ -183,26 +183,24 @@ ResendInvitationButton).
 
 **Listener — los 3 codes en URL manual:**
 
-> ⚠️ **BUG conocido en dev (2026-05-26)**: en `pnpm dev` el listener limpia
-> el hash pero NO muestra el toast. Causa: React 19 StrictMode monta el
-> efecto dos veces; el primer mount hace `replaceState` + schedule del
-> `setTimeout(setError, 0)`, el cleanup lo cancela; el segundo mount lee
-> el hash YA limpio y sale temprano sin setear el state. Tracking en
-> feature `fix_auth_error_listener_and_toast_polish` (block 4_polish).
-> Falta verificar si el bug también ocurre en `pnpm build && pnpm start`.
+> ✅ Bug de StrictMode resuelto por `fix_auth_error_listener_and_toast_polish`
+> (cerrada 2026-05-27): listener pasa a `useRef` como side-channel entre
+> mounts para preservar el ParsedError. Falta validar en browser (dev +
+> prod) que el toast aparece como se espera.
 
 - [ ] Navegar a `http://localhost:3000/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired`
       → aparece toast warning con "El link de invitación expiró. Pídele
       al admin que te envíe uno nuevo." → URL queda `http://localhost:3000/`
       sin hash → toast desaparece solo a los ~6s.
-      **FALLA en dev 2026-05-26**: URL se limpia, toast nunca aparece.
 - [ ] Navegar a `http://localhost:3000/#error=access_denied&error_code=access_denied&error_description=Unauthorized`
       → toast con "El link ya fue usado o no es válido. Si necesitas
-      otro, pídeselo al admin." (mismo bug esperado)
+      otro, pídeselo al admin."
 - [ ] Navegar a `http://localhost:3000/#error=server_error&error_code=potato&error_description=test`
       → toast con copy fallback "Hubo un problema con tu link de
       autenticación. Intenta de nuevo o pídele al admin un link nuevo."
-      (mismo bug esperado)
+- [ ] Repetir el primer caso en `pnpm build && pnpm start` y reportar
+      en notes si el bug existía en prod o no (StrictMode no aplica en
+      prod, pero el fix con useRef es inocuo).
 
 **Listener — casos negativos:**
 
@@ -214,8 +212,8 @@ ResendInvitationButton).
 
 **Listener — interacción:**
 
-> BLOQUEADOS por bug de StrictMode (ver feature
-> `fix_auth_error_listener_and_toast_polish`). Re-ejecutar tras el fix.
+> Desbloqueados por `fix_auth_error_listener_and_toast_polish` (cerrada
+> 2026-05-27). Re-ejecutar.
 
 - [ ] Test 1 + pulsar Escape antes de 6s → toast cierra inmediatamente.
 - [ ] Test 1 + clickear botón X → toast cierra inmediatamente.
@@ -247,10 +245,18 @@ ResendInvitationButton).
 > (1) los 3 toasts comparten posición fixed y se solapan en pantalla —
 > esperado (showcase lo advierte);
 > (2) el texto del mensaje NO está alineado verticalmente con el ícono
-> (luce flotando arriba) — agregado a feature
-> `fix_auth_error_listener_and_toast_polish`;
-> (3) el botón X no muestra `cursor-pointer` en hover — agregado al mismo
-> fix.
+> (luce flotando arriba) — ~~RESUELTO~~ por
+> `fix_auth_error_listener_and_toast_polish` (cerrada 2026-05-27);
+> (3) el botón X no muestra `cursor-pointer` en hover — ~~RESUELTO~~ por
+> el mismo fix.
+
+**Polish post-fix (smoke browser-based, 2026-05-27):**
+
+- [ ] `/dev/ui` sección Toast: las 3 variants (success/warning/danger)
+      tienen ícono + texto + botón X centrados verticalmente (eje
+      horizontal del toast pasa por el medio del ícono).
+- [ ] `/dev/ui` sección Toast: hover sobre el botón X muestra
+      `cursor: pointer` en las 3 variants.
 
 **Migración VisitScheduler (smoke F):**
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Toast } from '@/components/ui';
 
 type AuthErrorKind = 'otp_expired' | 'access_denied' | 'unknown';
@@ -52,11 +52,30 @@ function parseHash(rawHash: string): ParsedError | null {
  */
 export function AuthErrorHashListener() {
   const [error, setError] = useState<ParsedError | null>(null);
+  const parsedRef = useRef<ParsedError | null>(null);
 
+  // React 19 + StrictMode monta este efecto dos veces en dev. El primer
+  // mount lee `window.location.hash`, lo parsea, limpia la URL con
+  // `replaceState` y guarda el resultado en `parsedRef`. El segundo
+  // mount encuentra el hash YA limpio — sin el ref, `parseHash` retorna
+  // null y el toast nunca aparece. El ref sobrevive entre mounts
+  // (useRef preserva su valor) y dispara `setError` en cualquier
+  // corrida posterior. `setError` se llama síncrono (sin setTimeout)
+  // porque la condición previa garantiza que solo corre cuando hay
+  // algo que mostrar — el warn de `react-hooks/set-state-in-effect`
+  // queda silenciado inline.
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    if (parsedRef.current !== null) {
+      setError(parsedRef.current);
+      return;
+    }
+
     const parsed = parseHash(window.location.hash);
     if (!parsed) return;
+
+    parsedRef.current = parsed;
 
     // Limpia el hash sin agregar entry al history stack — lo hacemos antes
     // del setState para que el primer paint del toast ya tenga la URL
@@ -64,12 +83,7 @@ export function AuthErrorHashListener() {
     const cleanUrl = window.location.pathname + window.location.search;
     window.history.replaceState(null, '', cleanUrl);
 
-    // `setError` diferido a la próxima tick para no violar la regla
-    // `react-hooks/set-state-in-effect` (mismo patrón usado en
-    // `NotificationsDropdown`/`NotifBell`). La diferencia perceptible es
-    // nula: el toast aparece en el siguiente frame.
-    const t = setTimeout(() => setError(parsed), 0);
-    return () => clearTimeout(t);
+    setError(parsed);
   }, []);
 
   // Auto-dismiss y Escape los maneja el primitivo `Toast`. El listener solo
