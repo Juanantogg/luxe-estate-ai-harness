@@ -171,6 +171,26 @@ Matriz de links esperada por variant/sesión:
 - [x] Mobile (≤640px): drawer hamburguesa muestra los mismos links
       filtrados (no aparecen los muertos). (2026-05-27)
 
+### `topnav_active_link_listing_sale` (cerrada 2026-05-27)
+
+Verificar que el helper `isLinkActive` relajado marca 'Comprar' activo
+para los 3 estados del `ListingTypeToggle` correctamente.
+
+- [ ] Navegar a `/` (sin query) → TopNav 'Comprar' activo, 'Rentar'
+      inactivo.
+- [ ] En la home, clickear toggle "Comprar" → URL pasa a
+      `/?listing=sale` → TopNav 'Comprar' SIGUE activo, 'Rentar'
+      inactivo.
+- [ ] Clickear toggle "Rentar" → URL pasa a `/?listing=rent` → TopNav
+      'Rentar' activo, 'Comprar' inactivo.
+- [ ] Clickear toggle "Todas" → URL vuelve a `/` → TopNav 'Comprar'
+      activo nuevamente.
+- [ ] Mobile drawer: abrir hamburguesa en cada uno de los 3 estados,
+      verificar que el link resaltado coincide con el TopNav desktop.
+- [ ] Navegar manualmente a `/?listing=foo` (valor desconocido) →
+      NINGÚN link del TopNav queda activo (comportamiento defensivo
+      intencional).
+
 ### `admin_user_directory` (cerrada 2026-05-26)
 
 Verificación manual original más la del fix 0026 de hoy.
