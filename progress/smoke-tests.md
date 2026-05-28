@@ -129,6 +129,30 @@ Spec original tenía 17 pasos end-to-end, diferidos hasta que existiera
       se ve en mosque, no en negro. Tab al chip → focus ring visible.
       (2026-05-27)
 
+### `seed_more_properties` (cerrada 2026-05-27)
+
+Validar visualmente que el seed ampliado (49 properties, 6 imágenes por
+property) entrega lo prometido. Pre-requisito: tener `SUPABASE_SERVICE_ROLE_KEY`
+en `.env.local` y haber corrido `pnpm db:seed` al menos una vez.
+
+- [ ] Home pública: la sección "Nuevas en el mercado" muestra al menos
+      20 cards; "Load more" rinde varios clicks (4-5) antes de agotarse.
+- [ ] Home: variedad visual real — no se ve la misma foto de hero en 2
+      cards adyacentes (validar haciendo scroll por las primeras 20).
+- [ ] Chips de property_type filtran a counts visibles (House >10,
+      Apartment >10, Villa >5, Penthouse >5).
+- [ ] Toggle Buy/Rent: ambos lados muestran cards (no queda vacío en
+      ninguno).
+- [ ] Abrir 2-3 properties detail: galería con 6 imágenes (1 hero +
+      5 thumbnails scrollables); el hero es coherente con el tipo
+      (exterior de casa para `house`, fachada de building para
+      `apartment`, etc.).
+- [ ] Abrir una property tipo `condo` o `townhouse`: el hero usa el
+      pool general (no hay `EXTERIOR_BY_TYPE` para esos tipos) — debe
+      verse decente, no roto. Si se ve raro, agregar override al pool.
+- [ ] Re-correr `pnpm db:seed`: imprime "→ ya existe property…" y
+      "→ ya hay 6 imágenes…" sin insertar nada nuevo (idempotencia).
+
 ### `topnav_dead_links_cleanup` (cerrada 2026-05-27)
 
 Matriz de links esperada por variant/sesión:
