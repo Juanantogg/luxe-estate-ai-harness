@@ -549,6 +549,17 @@
       "acceptance": "Como agent, editar una property propia tecleando un título nuevo + Guardar cambios → recargar el form → el título nuevo aparece y persiste en DB. Si es bug, corregir el binding/serialización del form de edición.",
       "status": "done",
       "notes": "Bug REAL confirmado en smoke 2026-05-29 (no artefacto de la herramienta): stale closure en useCallback `submit` de PropertyForm.tsx — sus deps omitían `state.values` y capturaba una `doSubmit` no memoizada de un render viejo, serializando el title original al guardar. Fix: `doSubmit` -> useCallback con deps completas [state.values, state.images, mode, initial, router, startTransition]; `submit` depende de `doSubmit`; eliminados ambos eslint-disable de exhaustive-deps. Verificado en browser (title persiste, slug inmutable, payload correcto) + reviewer APPROVED."
+    },
+    {
+      "name": "seed_legacy_hero_mismatch",
+      "title": "Heros incoherentes con el tipo en las 10 properties del seed original",
+      "block": "seed",
+      "depends_on": ["seed_more_properties"],
+      "requires_approval": false,
+      "description": "Las 10 properties creadas en el seed original (2026-05-21, antes de EXTERIOR_BY_TYPE) tienen como hero (is_main) una foto del pool general por índice global, no del pool por tipo. Resultado: penthouses y apartments muestran casas/villas con piscina como imagen principal. Afectadas: the-glass-pavilion, azure-heights-penthouse, modern-family-home, urban-loft, sea-view-penthouse, modern-villa-palo-alto, modern-loft-soho, forest-retreat, the-nordic-villa, skyline-penthouse. Causa: la idempotencia por conteo de seedPropertyImages (scripts/seed.ts:1474, existingCount>=6 -> skip) impide que el re-seed corrija imágenes ya existentes; solo inserta si faltan. Las ~39 properties nuevas (2026-05-27) tienen hero correcto. Detectado en smoke de seed_more_properties 2026-05-29.",
+      "acceptance": "Las 10 properties legacy muestran un hero coherente con su property_type (penthouse/apartment con imagen de edificio/interior urbano, no villa con piscina). Opciones de fix: (a) script puntual que actualice solo la is_main de esas 10 al pool por tipo; (b) flag --reseed-images en el seed que fuerce regeneración de imágenes idempotentemente; (c) borrar y re-sembrar imágenes de las 10. NO romper la idempotencia normal del seed.",
+      "status": "done",
+      "notes": "Corregido 2026-05-29. Fix: flag opt-in `pnpm db:seed --reseed-images` que borra+reinserta las imágenes de cada property con el plan de pickImagesFor (hero del pool por tipo), manteniendo la idempotencia normal por default. Corrió OK: 10/10 heros legacy coherentes, conteo de imágenes invariante (294). Además se reemplazó una foto mal curada del pool apartment (photo-1572120360610, mostraba una casa con porche) por photo-1522708323590 (interior de apartamento urbano). Reviewer APPROVED. Verificado en browser."
     }
   ]
 }

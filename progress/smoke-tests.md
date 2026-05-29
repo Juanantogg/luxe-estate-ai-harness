@@ -135,23 +135,44 @@ Validar visualmente que el seed ampliado (49 properties, 6 imágenes por
 property) entrega lo prometido. Pre-requisito: tener `SUPABASE_SERVICE_ROLE_KEY`
 en `.env.local` y haber corrido `pnpm db:seed` al menos una vez.
 
-- [ ] Home pública: la sección "Nuevas en el mercado" muestra al menos
-      20 cards; "Load more" rinde varios clicks (4-5) antes de agotarse.
-- [ ] Home: variedad visual real — no se ve la misma foto de hero en 2
-      cards adyacentes (validar haciendo scroll por las primeras 20).
-- [ ] Chips de property_type filtran a counts visibles (House >10,
-      Apartment >10, Villa >5, Penthouse >5).
-- [ ] Toggle Buy/Rent: ambos lados muestran cards (no queda vacío en
-      ninguno).
-- [ ] Abrir 2-3 properties detail: galería con 6 imágenes (1 hero +
-      5 thumbnails scrollables); el hero es coherente con el tipo
-      (exterior de casa para `house`, fachada de building para
-      `apartment`, etc.).
-- [ ] Abrir una property tipo `condo` o `townhouse`: el hero usa el
-      pool general (no hay `EXTERIOR_BY_TYPE` para esos tipos) — debe
-      verse decente, no roto. Si se ve raro, agregar override al pool.
-- [ ] Re-correr `pnpm db:seed`: imprime "→ ya existe property…" y
-      "→ ya hay 6 imágenes…" sin insertar nada nuevo (idempotencia).
+> **Smoke ejecutado 2026-05-29 (Dario, playwright-cli headed + REST).**
+> 7/7 PASAN tras el fix. El único PARCIAL (hero incoherente en las 10
+> properties del seed original) fue corregido el mismo día por
+> `seed_legacy_hero_mismatch` (flag `--reseed-images` + reemplazo de una
+> foto mal curada del pool apartment). Datos verificados: 49 properties,
+> todas con exactamente 6 imágenes.
+
+- [x] Home pública: "Nuevas en el mercado" arranca con 8 cards; "Cargar
+      más propiedades" (link `?limit=N`, SSR) rinde **4 clicks**
+      (8→16→24→32→38) antes de agotarse. 38 ≫ 20 mínimo. (2026-05-29)
+- [x] Variedad visual real: en las 40 cards visibles, **0 pares
+      adyacentes** comparten la misma foto de hero (27 fotos únicas entre
+      40 cards — hay reutilización del pool pero nunca dos seguidas
+      iguales). (2026-05-29)
+- [x] Chips de property_type filtran a counts visibles: House 13,
+      Apartment 12, Villa 6, Penthouse 9 (cumple House/Apt >10,
+      Villa/Penthouse >5). (2026-05-29)
+- [x] Toggle Buy/Rent: ambos lados con cards — sale 25, rent 17. Ninguno
+      vacío. (2026-05-29)
+- [x] Detail: **galería de 6 imágenes confirmada en TODAS las probadas**
+      (house, apartment, penthouse, condo, townhouse: tablist "Mostrar
+      imagen X de 6", 1 hero + thumbnails). El hero coherente-con-tipo
+      fallaba en las 10 properties del seed original (creadas 2026-05-21,
+      antes de `EXTERIOR_BY_TYPE`; la idempotencia por conteo de
+      `seedPropertyImages` impedía corregirlas) — **CORREGIDO el mismo día**
+      por `seed_legacy_hero_mismatch`: flag `pnpm db:seed --reseed-images`
+      regenera las imágenes con el pool por tipo (10/10 heros coherentes
+      verificados). Además se reemplazó una foto mal curada del pool
+      apartment (`photo-1572120360610`, era una casa con porche) →
+      `photo-1522708323590` (interior urbano). Verificado en browser:
+      "Azure Heights Penthouse" muestra interior de penthouse, "Urban
+      Loft" muestra interior de apartamento. (2026-05-29)
+- [x] condo/townhouse: hero del pool general — "Battery Park Condo"
+      (terraza con vista al mar) y "Pearl Townhome" (fachada blanca
+      moderna) se ven decentes, no rotos. (2026-05-29)
+- [x] Re-correr `pnpm db:seed`: imprime "→ ya existe property…" y
+      "→ ya hay 6 imágenes…" para todo; conteos sin cambio antes/después
+      (49 properties, 294 imágenes). Idempotencia confirmada. (2026-05-29)
 
 ### `topnav_dead_links_cleanup` (cerrada 2026-05-27)
 

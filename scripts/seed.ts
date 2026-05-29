@@ -18,6 +18,10 @@ loadEnv();
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Flag opt-in: regenera las imágenes de cada property desde el plan por tipo
+// (pickImagesFor), corrigiendo heroes legacy del pool global. Sin el flag, el
+// reseed de imágenes sigue siendo idempotente por conteo (comportamiento default).
+const RESEED_IMAGES = process.argv.includes('--reseed-images');
 
 if (!SUPABASE_URL || !SERVICE_ROLE) {
   console.error('❌ Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en .env');
@@ -1332,7 +1336,9 @@ const EXTERIOR_BY_TYPE: Partial<Record<Database['public']['Enums']['property_typ
     'photo-1505691938895-1758d7feb511',
     'photo-1583608205776-bfd35f0d9f83',
     'photo-1615873968403-89e068629265',
-    'photo-1572120360610-d971b9d7767c',
+    // Reemplaza photo-1572120360610 (mostraba una casa con porche, no un
+    // apartment) por un interior de apartamento urbano. Smoke 2026-05-29.
+    'photo-1522708323590-d24dbb6b0267',
     'photo-1523217582562-09d0def993a6',
     'photo-1493809842364-78817add7ffb',
     'photo-1551776235-dde6d482980b',
@@ -1471,6 +1477,34 @@ async function seedPropertyImages(
   if (error) throw error;
 
   const existingCount = existingImages?.length ?? 0;
+
+  // Con --reseed-images: si la property ya tiene imágenes, las borramos todas y
+  // reinsertamos el plan fresco por tipo (hero del pool por tipo en position 0).
+  // Borrar antes de insertar evita conflictos con property_images_one_main_idx.
+  if (RESEED_IMAGES) {
+    if (existingCount > 0) {
+      const { error: delError } = await supabase
+        .from('property_images')
+        .delete()
+        .eq('property_id', propertyId);
+      if (delError) throw delError;
+    }
+
+    const plan = pickImagesFor(propertyType, propertyIndex);
+    const rows = plan.map((p, i) => ({
+      property_id: propertyId,
+      storage_path: buildUnsplashUrl(p.photoId),
+      is_main: i === 0,
+      position: i,
+      alt_text: `${propertyTitle} — foto ${i + 1}`,
+    }));
+
+    const { error: imgError } = await supabase.from('property_images').insert(rows);
+    if (imgError) throw imgError;
+    console.log(`    → regeneradas ${rows.length} imágenes para "${propertyTitle}"`);
+    return;
+  }
+
   if (existingCount >= IMAGES_PER_PROPERTY) {
     console.log(`    → ya hay ${existingCount} imágenes para "${propertyTitle}"`);
     return;
