@@ -5,7 +5,7 @@ import { getSessionAndProfile } from '@/lib/auth/get-session';
  * Layout para el shell público de la app (variant `app` del TopNav).
  *
  * NO redirige a `/login` cuando no hay sesión: a partir de la feature
- * `home_discover_screen`, las rutas `/`, `/property/[id]` y `/search` son
+ * `home_discover_screen`, las rutas `/`, `/property/[slug]` y `/search` son
  * públicas. La protección de rutas privadas (`/favorites`, `/profile`,
  * `/visits`) vive en el middleware (`proxy.ts`), no en este layout.
  *

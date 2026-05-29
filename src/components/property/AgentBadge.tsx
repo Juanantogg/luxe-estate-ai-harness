@@ -24,7 +24,7 @@ const ROLE_LABEL: Record<UserRole, string> = {
  * + rol traducido + iconos de contacto (mail, call).
  *
  * Reglas:
- * - Anon → IconButtons visibles que redirigen a /login?next=/property/[id]
+ * - Anon → IconButtons visibles que redirigen a /login?next=/property/[slug]
  *   (mismo patrón que `FavoriteButton`).
  * - Auth + email presente → ícono `mail_outline` abre `mailto:` con el
  *   título de la propiedad como subject. Si NO hay email, ícono oculto.

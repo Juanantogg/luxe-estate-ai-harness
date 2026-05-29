@@ -13,7 +13,7 @@ export interface FavoriteButtonProps {
   isAuthenticated: boolean;
   /**
    * Path destino tras login cuando el visitante es anónimo. Default `/`
-   * para listados; el detalle de propiedad pasa `/property/[id]` para que
+   * para listados; el detalle de propiedad pasa `/property/[slug]` para que
    * el usuario vuelva al mismo lugar tras autenticarse.
    */
   redirectNext?: string;

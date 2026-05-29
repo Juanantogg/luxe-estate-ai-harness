@@ -16,11 +16,11 @@ export interface PriceAndAgentCardProps {
  * Sidebar card que combina precio + dirección + agente + CTAs principales.
  *
  * Reglas de los CTAs (resumen — detalle en design.md §4.4):
- * - Anónimo → "Agendar visita" redirige a `/login?next=/property/[id]`.
+ * - Anónimo → "Agendar visita" redirige a `/login?next=/property/[slug]`.
  *   (next apunta a la detail, no a /schedule, para evitar 404 tras login
  *    si la pantalla schedule aún no existe.)
  * - Usuario / agente / broker / admin no dueño → "Agendar visita" navega
- *   a `/property/[id]/schedule`.
+ *   a `/property/[slug]/schedule`.
  * - Dueño → reemplaza "Agendar visita" por "Editar en dashboard" hacia
  *   `/dashboard/properties/[id]/edit`. Oculta "Contactar al agente"
  *   (sería contactarse a sí mismo).

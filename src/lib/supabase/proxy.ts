@@ -50,8 +50,8 @@ export async function updateSession(request: NextRequest) {
 
   // Rutas que requieren autenticación. Si crecen, se mueve a un array
   // configurable o a un matcher por regex.
-  // /property/[id]/schedule es privada (agendar visita exige sesión);
-  // /property/[id] (sin trailing segment) sigue siendo pública.
+  // /property/[slug]/schedule es privada (agendar visita exige sesión);
+  // /property/[slug] (sin trailing segment) sigue siendo pública.
   const isProtectedPath =
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/favorites') ||

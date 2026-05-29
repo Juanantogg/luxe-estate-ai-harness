@@ -33,7 +33,7 @@ const PUBLIC_STATUSES = new Set<PropertyForManagement['listing_status']>([
  *   badge + acciones.
  *
  * Decisiones (spec §"Componentes > PropertyManagementRow"):
- *  - El título es link a `/property/[id]` con `target="_blank"` **solo si**
+ *  - El título es link a `/property/[slug]` con `target="_blank"` **solo si**
  *    `listing_status` es público (`active|pending|sold|rented`).
  *    Para `draft`/`archived`, es texto plano con tooltip
  *    `title="No disponible públicamente"`.

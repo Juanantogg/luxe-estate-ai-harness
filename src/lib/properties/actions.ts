@@ -52,7 +52,7 @@ async function revalidatePropertyPaths(supabase: SupabaseDb, propertyId: string)
  *   y el cliente decide qué hacer (redirigir a `/login?next=/` en el caso del
  *   heart de la home).
  * - Lee el estado actual de `favorites` y alterna INSERT / DELETE.
- * - Revalida `/`, `/favorites`, `/property/[id]` para que cualquier listado
+ * - Revalida `/`, `/favorites`, `/property/[slug]` para que cualquier listado
  *   server-side se refresque tras la mutación.
  */
 
