@@ -191,6 +191,39 @@ para los 3 estados del `ListingTypeToggle` correctamente.
       NINGÚN link del TopNav queda activo (comportamiento defensivo
       intencional).
 
+### `property_pretty_urls` (cerrada 2026-05-29)
+
+URLs `/property/<uuid>` migradas a `/property/<slug>` con redirect 308
+para links legacy. Slug autogenerado por trigger DB, inmutable.
+
+- [ ] Como anon: navegar a una URL UUID legacy
+      (`/property/<uuid-de-una-active>`) → URL del browser cambia a
+      `/property/<slug>` con 308 (verificar en devtools Network).
+      Detalle se renderiza normal.
+- [ ] Como anon: navegar directo a `/property/<slug>` → 200, sin
+      redirect (verificar en devtools).
+- [ ] Como anon: navegar a `/property/<slug-de-archivada>` → 404 (la
+      RLS `for select to anon where listing_status = 'active'` la
+      filtra). Verificar con un slug obtenido directo de DB de una
+      property archivada.
+- [ ] Como agent: editar una property propia → la sección "URL pública"
+      del form muestra el slug actual read-only. Cambiar el title +
+      Guardar → la URL pública mostrada NO cambia (slug inmutable).
+      Volver al dashboard, click en el title → URL navegada usa el slug.
+- [ ] Como agent: crear property nueva → el form NO muestra "URL
+      pública". Tras guardar como `published`, abrir desde el dashboard
+      → la URL del browser tiene formato esperado
+      `casa-...-ciudad-<4hex>`.
+- [ ] Como user con notif pendiente que referencia property (p. ej.
+      `new_property`): abrir dropdown, click → navega primero al UUID,
+      luego 308 al slug. Verificar en Network tab que se ve el 308 (no
+      es solo un client-side redirect).
+- [ ] Como agent: agendar visita a property A → al recibir notif de
+      tipo `visit_confirmed` (otro user), click → navegación final
+      termina en `/property/<slug>`.
+- [ ] `/property/<slug>/schedule` carga 200 para user no-owner; para
+      owner redirige a dashboard. Mismo comportamiento que hoy con UUID.
+
 ### `admin_user_directory` (cerrada 2026-05-26)
 
 Verificación manual original más la del fix 0026 de hoy.
