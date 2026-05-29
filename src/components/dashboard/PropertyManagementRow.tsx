@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Avatar, Badge, Icon } from '@/components/ui';
 import { getImageUrl } from '@/lib/images/get-image-url';
 import type { PropertyForManagement } from '@/lib/dashboard/queries';
+import { getPropertyUrl } from '@/lib/properties';
 import { formatArea, formatPrice, getStatusBadgeProps } from '@/lib/properties/format';
 import { cn } from '@/lib/utils/cn';
 import { DeletePropertyButton } from './DeletePropertyButton';
@@ -60,7 +61,7 @@ export function PropertyManagementRow({ property, viewerMode }: PropertyManageme
 
   const titleNode = isPublic ? (
     <Link
-      href={`/property/${property.id}`}
+      href={getPropertyUrl(property)}
       target="_blank"
       rel="noopener noreferrer"
       aria-label={`Ver "${property.title}" en pestaña nueva`}

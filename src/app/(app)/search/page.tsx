@@ -20,7 +20,7 @@ type ListingType = Database['public']['Enums']['listing_type'];
 type PropertyType = Database['public']['Enums']['property_type'];
 
 const SELECT_COLUMNS = `
-  id, title, address_line, city, state, country, price, previous_price,
+  id, slug, title, address_line, city, state, country, price, previous_price,
   listing_type, property_type, bedrooms, bathrooms, area_sqm,
   is_featured, is_premium, published_at,
   property_images!inner ( storage_path, alt_text, is_main, position )
@@ -28,6 +28,7 @@ const SELECT_COLUMNS = `
 
 interface RawPropertyRow {
   id: string;
+  slug: string;
   title: string;
   address_line: string;
   city: string;
@@ -56,6 +57,7 @@ function toPropertyForCard(row: RawPropertyRow): PropertyForCard {
     row.property_images.find((img) => img.is_main) ?? row.property_images[0] ?? null;
   return {
     id: row.id,
+    slug: row.slug,
     title: row.title,
     address_line: row.address_line,
     city: row.city,

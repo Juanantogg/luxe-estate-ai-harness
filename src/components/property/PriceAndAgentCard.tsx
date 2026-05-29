@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Badge, Button, Icon } from '@/components/ui';
+import { getPropertyScheduleUrl, getPropertyUrl } from '@/lib/properties';
 import { formatPriceParts } from '@/lib/properties/format';
 import type { ListingStatus, PropertyForDetail } from '@/lib/properties/queries';
 import { cn } from '@/lib/utils/cn';
@@ -32,7 +33,7 @@ export function PriceAndAgentCard({ property, isAuthenticated, isOwner }: PriceA
   const statusBadge =
     property.listing_status !== 'active' ? renderStatusBadge(property.listing_status) : null;
 
-  const loginNext = `/login?next=${encodeURIComponent(`/property/${property.id}`)}`;
+  const loginNext = `/login?next=${encodeURIComponent(getPropertyUrl(property))}`;
 
   const regionPart = property.state ?? property.country ?? '';
   const addressLine = `${property.address_line}, ${property.city}${regionPart ? `, ${regionPart}` : ''}`;
@@ -73,7 +74,7 @@ export function PriceAndAgentCard({ property, isAuthenticated, isOwner }: PriceA
         <AgentBadge
           owner={property.owner}
           isAuthenticated={isAuthenticated}
-          propertyId={property.id}
+          propertySlug={property.slug}
         />
       </div>
 
@@ -91,7 +92,7 @@ export function PriceAndAgentCard({ property, isAuthenticated, isOwner }: PriceA
           </Link>
         ) : (
           <Link
-            href={isAuthenticated ? `/property/${property.id}/schedule` : loginNext}
+            href={isAuthenticated ? getPropertyScheduleUrl(property) : loginNext}
             className="block"
             aria-label="Agendar una visita a esta propiedad"
           >

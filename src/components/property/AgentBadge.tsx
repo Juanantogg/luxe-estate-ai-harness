@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Avatar, Icon } from '@/components/ui';
+import { getPropertyUrl } from '@/lib/properties';
 import type { OwnerProfileFull, UserRole } from '@/lib/properties/queries';
 import { cn } from '@/lib/utils/cn';
 
@@ -8,7 +9,7 @@ export interface AgentBadgeProps {
   isAuthenticated: boolean;
   /** Para construir el redirect `next=` cuando un visitante anónimo
    *  toca uno de los IconButtons de contacto. */
-  propertyId: string;
+  propertySlug: string;
 }
 
 const ROLE_LABEL: Record<UserRole, string> = {
@@ -39,7 +40,7 @@ const ROLE_LABEL: Record<UserRole, string> = {
  * `chat` sugiere una funcionalidad inexistente; `mail_outline` es honesto
  * con el fallback `mailto:`.
  */
-export function AgentBadge({ owner, isAuthenticated, propertyId }: AgentBadgeProps) {
+export function AgentBadge({ owner, isAuthenticated, propertySlug }: AgentBadgeProps) {
   if (!owner) {
     return (
       <div className="flex items-center gap-3 text-sm text-muted italic">
@@ -49,7 +50,7 @@ export function AgentBadge({ owner, isAuthenticated, propertyId }: AgentBadgePro
     );
   }
 
-  const loginHref = `/login?next=${encodeURIComponent(`/property/${propertyId}`)}`;
+  const loginHref = `/login?next=${encodeURIComponent(getPropertyUrl({ slug: propertySlug }))}`;
   const mailHref = owner.email ? `mailto:${owner.email}` : null;
   const telHref = owner.phone ? `tel:${owner.phone}` : null;
 

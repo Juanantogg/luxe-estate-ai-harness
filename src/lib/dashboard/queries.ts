@@ -81,6 +81,7 @@ const LIST_SELECT_WITH_OWNER = `
 
 interface RawListRow {
   id: string;
+  slug: string;
   title: string;
   address_line: string;
   city: string;
@@ -113,6 +114,7 @@ function toPropertyForManagement(row: RawListRow): PropertyForManagement {
     : (row.owner_profile ?? null);
   return {
     id: row.id,
+    slug: row.slug,
     title: row.title,
     address_line: row.address_line,
     city: row.city,

@@ -95,6 +95,7 @@ export default async function SchedulePage({ params, searchParams }: SchedulePag
 
             <VisitScheduler
               propertyId={property.id}
+              propertySlug={property.slug}
               occupiedSlotsIso={occupiedSlotsIso}
               propertyTimeZone={property.timezone}
               propertyTimeZoneLabel={tzLabel}

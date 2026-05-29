@@ -93,6 +93,7 @@ export interface VisitForCard {
   status: VisitStatus;
   property: {
     id: string;
+    slug: string;
     title: string;
     address_line: string;
     city: string;
@@ -123,6 +124,7 @@ type RawVisitRow = {
   property:
     | {
         id: string;
+        slug: string;
         title: string;
         address_line: string;
         city: string;
@@ -138,6 +140,7 @@ type RawVisitRow = {
       }
     | Array<{
         id: string;
+        slug: string;
         title: string;
         address_line: string;
         city: string;
@@ -192,7 +195,7 @@ export async function getUserVisits(supabase: SupabaseDb, userId: string): Promi
       scheduled_at,
       status,
       property:properties!visits_property_id_fkey (
-        id, title, address_line, city, state, country, timezone,
+        id, slug, title, address_line, city, state, country, timezone,
         property_images ( storage_path, alt_text, is_main, position )
       ),
       agent:profiles!visits_agent_id_fkey (
@@ -222,6 +225,7 @@ export async function getUserVisits(supabase: SupabaseDb, userId: string): Promi
       status: row.status,
       property: {
         id: propertyRaw.id,
+        slug: propertyRaw.slug,
         title: propertyRaw.title,
         address_line: propertyRaw.address_line,
         city: propertyRaw.city,

@@ -97,7 +97,7 @@ export function VisitPropertySummary({ property, isAuthenticated }: VisitPropert
       <AgentBadge
         owner={property.owner}
         isAuthenticated={isAuthenticated}
-        propertyId={property.id}
+        propertySlug={property.slug}
       />
     </div>
   );

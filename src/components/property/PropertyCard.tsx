@@ -4,6 +4,7 @@ import { Badge, Button, Icon } from '@/components/ui';
 import { getImageUrl } from '@/lib/images/get-image-url';
 import { deriveBadge, deriveListingBadge } from '@/lib/properties/derive-badges';
 import { formatArea } from '@/lib/properties/format';
+import { getPropertyUrl, getPropertyScheduleUrl } from '@/lib/properties';
 import type { PropertyForCard } from '@/lib/properties/queries';
 import { cn } from '@/lib/utils/cn';
 import { FavoriteButton } from './FavoriteButton';
@@ -111,7 +112,7 @@ function FeaturedPropertyCard({
       )}
     >
       <Link
-        href={`/property/${property.id}`}
+        href={getPropertyUrl(property)}
         aria-label={`Ver detalle de ${property.title}`}
         className="absolute inset-0 z-10 focus:outline-none"
       >
@@ -235,7 +236,7 @@ function CompactPropertyCard({
       )}
     >
       <Link
-        href={`/property/${property.id}`}
+        href={getPropertyUrl(property)}
         aria-label={`Ver detalle de ${property.title}`}
         className="absolute inset-0 z-10 focus:outline-none"
       >
@@ -310,7 +311,7 @@ function CompactPropertyCard({
         {showBookingCTA && (
           <div className="relative z-20 mt-3 border-t border-divider-soft pt-3">
             <Link
-              href={`/property/${property.id}/visit`}
+              href={getPropertyScheduleUrl(property)}
               aria-label={
                 isRent
                   ? `Agendar tour para ${property.title}`

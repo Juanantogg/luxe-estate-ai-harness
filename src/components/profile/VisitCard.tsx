@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Badge, Icon } from '@/components/ui';
 import { getImageUrl } from '@/lib/images/get-image-url';
 import type { VisitForCard } from '@/lib/profile/queries';
+import { getPropertyScheduleUrl } from '@/lib/properties';
 import { cn } from '@/lib/utils/cn';
 
 export interface VisitCardProps {
@@ -116,7 +117,7 @@ export function VisitCard({ visit, isUpcoming }: VisitCardProps) {
         <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto md:shrink-0">
           {isUpcoming && (
             <Link
-              href={`/property/${property.id}/schedule?reschedule=${visit.id}`}
+              href={`${getPropertyScheduleUrl(property)}?reschedule=${visit.id}`}
               className={cn(
                 'inline-flex h-10 items-center justify-center rounded border border-outline px-4 text-sm font-medium text-on-surface',
                 'transition-colors hover:bg-surface-hover hover:text-on-surface',

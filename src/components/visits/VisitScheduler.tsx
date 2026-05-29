@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
 import { Button, Toast } from '@/components/ui';
+import { getPropertyUrl } from '@/lib/properties';
 import { scheduleVisit } from '@/lib/visits/actions';
 import {
   firstOfMonthIso,
@@ -17,7 +18,12 @@ import { MonthCalendar } from './MonthCalendar';
 import { TimeSlotGrid } from './TimeSlotGrid';
 
 export interface VisitSchedulerProps {
+  /** UUID de la propiedad. Se envía al Server Action `scheduleVisit` que
+   *  valida ownership y resuelve agente vía RLS. */
   propertyId: string;
+  /** Slug de la propiedad. Se usa para construir el href de "Cancelar"
+   *  (URL pública canónica). */
+  propertySlug: string;
   /** Timestamps ISO (UTC) ya ocupados por el agente. */
   occupiedSlotsIso: string[];
   /** Zona IANA de la propiedad (ej. 'America/Los_Angeles'). */
@@ -40,6 +46,7 @@ const MIN_HOURS_AHEAD = 24;
  */
 export function VisitScheduler({
   propertyId,
+  propertySlug,
   occupiedSlotsIso,
   propertyTimeZone,
   propertyTimeZoneLabel,
@@ -196,7 +203,7 @@ export function VisitScheduler({
         )}
       >
         <Link
-          href={`/property/${propertyId}`}
+          href={getPropertyUrl({ slug: propertySlug })}
           className="text-sm text-muted transition-colors hover:text-on-surface focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none"
         >
           Cancelar
