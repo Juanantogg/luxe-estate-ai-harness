@@ -1,9 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import type { Filters } from '@/lib/search/filter-params';
 import { createClient } from '@/lib/supabase/server';
+import type { Database } from '@/types/database';
 import {
   AMENITY_KEYS,
   MAX_IMAGES_PER_PROPERTY,
@@ -12,6 +14,36 @@ import {
   publishSchema,
 } from './form-schemas';
 import { PROPERTY_IMAGES_BUCKET } from './image-upload';
+
+type SupabaseDb = SupabaseClient<Database>;
+
+/**
+ * Revalida ambos paths del detalle de una property: el slug actual (canónico)
+ * y el path UUID legacy (que ya no existe como page pero puede estar cacheado
+ * en clientes que llegaron vía el 308 antes del rename, o en links externos).
+ *
+ * Defensivo: Next ignora silenciosamente la revalidación de un path sin matcher
+ * — el `/property/<uuid>` no rompe nada, solo deja una invalidación de cache
+ * sin efecto visible. Costo cero, robustez contra estados intermedios.
+ *
+ * Interno (sin export): solo se usa desde las actions de este módulo.
+ * Si la query del slug falla o devuelve null, revalidamos al menos el path
+ * UUID y loggeamos warn para no perder señales sin matar el Server Action.
+ */
+async function revalidatePropertyPaths(supabase: SupabaseDb, propertyId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('properties')
+    .select('slug')
+    .eq('id', propertyId)
+    .maybeSingle();
+  if (error) {
+    console.warn('[revalidatePropertyPaths] slug lookup failed', { propertyId, error });
+  }
+  revalidatePath(`/property/${propertyId}`);
+  if (data?.slug) {
+    revalidatePath(`/property/${data.slug}`);
+  }
+}
 
 /**
  * Server Action `toggleFavorite`.
@@ -77,7 +109,7 @@ export async function toggleFavorite(input: { propertyId: string }): Promise<Tog
     }
     revalidatePath('/');
     revalidatePath('/favorites');
-    revalidatePath(`/property/${propertyId}`);
+    await revalidatePropertyPaths(supabase, propertyId);
     return { ok: true, isFavorite: false };
   }
 
@@ -92,7 +124,7 @@ export async function toggleFavorite(input: { propertyId: string }): Promise<Tog
   }
   revalidatePath('/');
   revalidatePath('/favorites');
-  revalidatePath(`/property/${propertyId}`);
+  await revalidatePropertyPaths(supabase, propertyId);
   return { ok: true, isFavorite: true };
 }
 
@@ -262,7 +294,7 @@ export async function archiveProperty(input: { id: string }): Promise<ArchivePro
 
   revalidatePath('/dashboard');
   revalidatePath('/');
-  revalidatePath(`/property/${parsed.data.id}`);
+  await revalidatePropertyPaths(supabase, parsed.data.id);
   return { ok: true };
 }
 
@@ -586,7 +618,7 @@ export async function createProperty(input: CreatePropertyInput): Promise<Create
 
   revalidatePath('/dashboard');
   revalidatePath('/');
-  revalidatePath(`/property/${propertyId}`);
+  await revalidatePropertyPaths(supabase, propertyId);
   return { ok: true, id: propertyId };
 }
 
@@ -962,7 +994,7 @@ export async function updateProperty(input: UpdatePropertyInput): Promise<Update
 
   revalidatePath('/dashboard');
   revalidatePath('/');
-  revalidatePath(`/property/${id}`);
+  await revalidatePropertyPaths(supabase, id);
   return { ok: true, id };
 }
 
@@ -1056,6 +1088,6 @@ export async function restoreProperty(input: { id: string }): Promise<RestorePro
 
   revalidatePath('/dashboard');
   revalidatePath('/');
-  revalidatePath(`/property/${parsed.data.id}`);
+  await revalidatePropertyPaths(supabase, parsed.data.id);
   return { ok: true };
 }
