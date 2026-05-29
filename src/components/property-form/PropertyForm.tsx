@@ -189,6 +189,89 @@ export function PropertyForm({ mode, initial, ownerId }: PropertyFormProps) {
 
   const disabledReason: string | null = hasUploading ? 'Esperá a que terminen las subidas…' : null;
 
+  const doSubmit = useCallback(
+    (submitMode: 'draft' | 'publish', dropErrors = false) => {
+      setPhase('saving');
+      dispatch({ type: 'clear_errors' });
+
+      // Imágenes ready solamente (descartamos error si dropErrors)
+      const filtered = state.images.filter((i) => {
+        if (i.deleted) return mode === 'edit' && Boolean(i.dbId); // keep deletes
+        if (dropErrors && i.status === 'error') return false;
+        return true;
+      });
+
+      startTransition(async () => {
+        try {
+          if (mode === 'create') {
+            const draftImagesPayload = filtered
+              .filter((i) => !i.deleted && i.status === 'ready')
+              .map((i, idx) => ({
+                storagePath: i.storagePath,
+                isMain: i.isMain,
+                altText: i.altText,
+                position: idx,
+              }));
+            const input: CreatePropertyInput = {
+              mode: submitMode,
+              values: state.values,
+              draftImages: draftImagesPayload,
+              amenities: [...state.values.amenities],
+            };
+            const result = await createProperty(input);
+            if (!result.ok) {
+              setPhase('idle');
+              dispatch({
+                type: 'set_errors',
+                errors: result.error.fieldErrors ?? {},
+                globalError: result.error.message,
+              });
+              return;
+            }
+            router.push('/dashboard');
+          } else {
+            // Edit: armar el array completo
+            const payloadImages = filtered.map((i, idx) => ({
+              id: i.dbId,
+              storagePath: i.storagePath,
+              isMain: i.isMain,
+              altText: i.altText,
+              position: idx,
+              deleted: i.deleted,
+            }));
+            const input: UpdatePropertyInput = {
+              id: initial!.id,
+              mode: submitMode,
+              values: state.values,
+              images: payloadImages,
+              amenities: [...state.values.amenities],
+            };
+            const result = await updateProperty(input);
+            if (!result.ok) {
+              setPhase('idle');
+              dispatch({
+                type: 'set_errors',
+                errors: result.error.fieldErrors ?? {},
+                globalError: result.error.message,
+              });
+              return;
+            }
+            router.push('/dashboard');
+          }
+        } catch (err) {
+          console.warn('[PropertyForm] submit failed', err);
+          setPhase('idle');
+          dispatch({
+            type: 'set_errors',
+            errors: {},
+            globalError: 'Ocurrió un error inesperado. Intentá de nuevo.',
+          });
+        }
+      });
+    },
+    [state.values, state.images, mode, initial, router, startTransition],
+  );
+
   const submit = useCallback(
     (submitMode: 'draft' | 'publish') => {
       if (hasUploading) return;
@@ -204,89 +287,8 @@ export function PropertyForm({ mode, initial, ownerId }: PropertyFormProps) {
 
       doSubmit(submitMode);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hasUploading, hasErrors, state.images],
+    [hasUploading, hasErrors, state.images, doSubmit],
   );
-
-  function doSubmit(submitMode: 'draft' | 'publish', dropErrors = false) {
-    setPhase('saving');
-    dispatch({ type: 'clear_errors' });
-
-    // Imágenes ready solamente (descartamos error si dropErrors)
-    const filtered = state.images.filter((i) => {
-      if (i.deleted) return mode === 'edit' && Boolean(i.dbId); // keep deletes
-      if (dropErrors && i.status === 'error') return false;
-      return true;
-    });
-
-    startTransition(async () => {
-      try {
-        if (mode === 'create') {
-          const draftImagesPayload = filtered
-            .filter((i) => !i.deleted && i.status === 'ready')
-            .map((i, idx) => ({
-              storagePath: i.storagePath,
-              isMain: i.isMain,
-              altText: i.altText,
-              position: idx,
-            }));
-          const input: CreatePropertyInput = {
-            mode: submitMode,
-            values: state.values,
-            draftImages: draftImagesPayload,
-            amenities: [...state.values.amenities],
-          };
-          const result = await createProperty(input);
-          if (!result.ok) {
-            setPhase('idle');
-            dispatch({
-              type: 'set_errors',
-              errors: result.error.fieldErrors ?? {},
-              globalError: result.error.message,
-            });
-            return;
-          }
-          router.push('/dashboard');
-        } else {
-          // Edit: armar el array completo
-          const payloadImages = filtered.map((i, idx) => ({
-            id: i.dbId,
-            storagePath: i.storagePath,
-            isMain: i.isMain,
-            altText: i.altText,
-            position: idx,
-            deleted: i.deleted,
-          }));
-          const input: UpdatePropertyInput = {
-            id: initial!.id,
-            mode: submitMode,
-            values: state.values,
-            images: payloadImages,
-            amenities: [...state.values.amenities],
-          };
-          const result = await updateProperty(input);
-          if (!result.ok) {
-            setPhase('idle');
-            dispatch({
-              type: 'set_errors',
-              errors: result.error.fieldErrors ?? {},
-              globalError: result.error.message,
-            });
-            return;
-          }
-          router.push('/dashboard');
-        }
-      } catch (err) {
-        console.warn('[PropertyForm] submit failed', err);
-        setPhase('idle');
-        dispatch({
-          type: 'set_errors',
-          errors: {},
-          globalError: 'Ocurrió un error inesperado. Intentá de nuevo.',
-        });
-      }
-    });
-  }
 
   const heading = mode === 'edit' ? 'Editar propiedad' : 'Agregar propiedad';
 

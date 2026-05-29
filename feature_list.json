@@ -34,7 +34,6 @@
       "depends_on": [],
       "requires_approval": true,
       "description": "Server Actions de auth: signInWithPassword, signUpWithPassword (con verificación de email obligatoria), signInWithGoogle (OAuth), signOut, requestPasswordReset, updatePassword. Route handlers /auth/callback (OAuth + email confirm) y /auth/reset (landing del token de reset). Helpers de redirección por rol post-login (user → /, agent/broker → /dashboard, admin → /admin). Validación con zod. NO incluye la pantalla de login (esa es feature aparte) — solo la lógica reutilizable.",
-
       "acceptance": [
         "src/lib/auth/actions.ts con las Server Actions tipadas (signIn, signUp, signInWithGoogle, signOut, requestPasswordReset, updatePassword)",
         "src/app/auth/callback/route.ts maneja el code exchange de OAuth y de confirmación de email",
@@ -528,6 +527,28 @@
       ],
       "status": "done",
       "notes": "Implementación 2026-05-27. 2 archivos modificados (AuthErrorHashListener.tsx + Toast.tsx). Spec en design.md cierra Opción 1 (useRef como side-channel entre mounts de StrictMode) sobre Opción 2 (setState síncrono sin ref): el ref preserva el ParsedError parseado del primer mount para que el segundo mount no lo pierda cuando la URL ya está limpia. Cambios B y C son 3 líneas de className (items-start → items-center, quitar mt-0.5, agregar cursor-pointer). El implementer removió los `// eslint-disable-next-line react-hooks/set-state-in-effect` que el spec sugería porque ESLint no se queja con los early-returns (acepted como NIT cosmético no bloqueante). Reviewer APPROVED WITH NITS 2026-05-27. init.sh full OK (lint 0 warnings, type-check OK, build OK con 15 páginas).\n\nHot-fix post-smoke browser (2026-05-27): el toast aparecía correctamente pero lucía muy transparente sobre el hero con imágenes (bg-*-soft es rgba alpha 0.12, casi invisible sobre foto clara). Cambio D agregado al spec: VARIANT_STYLES pasa de bg-*-soft + text-* saturado → bg-* saturado + text-on-primary blanco. Mismo patrón para los 3 variants. Aplicado por el leader directo (1 archivo, 6 líneas, init.sh OK). Smoke browser-based pendiente del humano: paso 2-8 del spec §Verificación (dev + prod) y paso 11-13 (/dev/ui).\n\nSurge del smoke test del 2026-05-26 (Dario):\n\nA) Listener: el reviewer original (2026-05-27) verificó 'replaceState corre síncrono antes del tick' pero no anticipó el double-mount de StrictMode que invalida la lectura del hash en el segundo render. Reproducción: 1) `pnpm dev` arriba; 2) abrir `http://localhost:3000/#error=access_denied&error_code=otp_expired&error_description=test` en pestaña limpia; 3) URL se limpia a `http://localhost:3000/`, NO aparece toast. Hipótesis del fix: capturar el parsed result en un `useRef<ParsedError | null>(null)` poblado en la primera corrida, y en cualquier corrida posterior si el ref tiene valor → llamar setError con él. Alternativa más limpia: setear state síncrono (sin setTimeout) y dejar que el lint warn pase con justificación inline (precedente en NotificationsDropdown/NotifBell). Verificar también si afecta a prod build.\n\nB) Alineación: en /dev/ui se ve claramente que los 3 toasts tienen el texto pegado al borde superior del ícono. El primitivo usa `items-start` + `Icon className='mt-0.5'`. Cambio sugerido: `items-center` y quitar el `mt-0.5`. Riesgo: si el mensaje crece a 2 líneas, items-center deja el ícono visualmente en el medio del bloque de texto (puede no ser ideal). En la mayoría de los call sites actuales el mensaje es 1 línea, así que items-center es la mejor decisión por defecto.\n\nC) Cursor: el botón close no tiene cursor-pointer. Convención del repo (verificar en otros botones del directory admin, NotifBell, etc.) usa `cursor-pointer` para botones no-form."
+    },
+    {
+      "name": "property_legacy_redirect_not_308",
+      "title": "Redirect legacy UUID→slug no emite 308 HTTP (es meta-refresh)",
+      "block": "property",
+      "depends_on": ["property_pretty_urls"],
+      "requires_approval": false,
+      "description": "La ruta /property/[slug] tiene loading.tsx, por lo que permanentRedirect() corre en streaming context: Next 16 NO emite un 308 HTTP, inserta <meta http-equiv=refresh> y el redirect es client-side (curl en dev y prod devuelve 200 + meta-refresh). El comentario en page.tsx:48 afirma que es un 308 que SEO preserva como permanente — incorrecto. Opciones: (a) aceptar meta-refresh y corregir el comentario, o (b) mover el redirect legacy a Proxy/middleware para emitir un 308 real. Detectado en smoke de property_pretty_urls 2026-05-29.",
+      "acceptance": "Decidir y documentar el enfoque. Si se opta por 308 real: curl a /property/<uuid-legacy> devuelve status 308 con Location al slug (sin loading.tsx interfiriendo). Si se acepta meta-refresh: corregir el comentario de page.tsx:48 para que refleje la realidad.",
+      "status": "pending",
+      "notes": "Hallazgo de smoke. Ver progress/smoke-tests.md sección property_pretty_urls."
+    },
+    {
+      "name": "property_edit_form_not_persisting",
+      "title": "Form de edición de property no persiste cambios vía UI",
+      "block": "property",
+      "depends_on": [],
+      "requires_approval": false,
+      "description": "Al editar una property propia (agent), cambiar el título y Guardar redirige a /dashboard pero el title NO se actualiza en DB. Observado en smoke de property_pretty_urls con marcus editando Azure Heights. Reproducido tanto con playwright-cli fill como con teclado real. Puede ser parcialmente artefacto de la automatización (inputs controlados de React) pero la action redirige como si hubiera guardado, lo que sugiere que algo se descarta. Requiere verificación manual humana tecleando en el browser para descartar/confirmar bug real.",
+      "acceptance": "Como agent, editar una property propia tecleando un título nuevo + Guardar cambios → recargar el form → el título nuevo aparece y persiste en DB. Si es bug, corregir el binding/serialización del form de edición.",
+      "status": "done",
+      "notes": "Bug REAL confirmado en smoke 2026-05-29 (no artefacto de la herramienta): stale closure en useCallback `submit` de PropertyForm.tsx — sus deps omitían `state.values` y capturaba una `doSubmit` no memoizada de un render viejo, serializando el title original al guardar. Fix: `doSubmit` -> useCallback con deps completas [state.values, state.images, mode, initial, router, startTransition]; `submit` depende de `doSubmit`; eliminados ambos eslint-disable de exhaustive-deps. Verificado en browser (title persiste, slug inmutable, payload correcto) + reviewer APPROVED."
     }
   ]
 }

@@ -196,33 +196,90 @@ para los 3 estados del `ListingTypeToggle` correctamente.
 URLs `/property/<uuid>` migradas a `/property/<slug>` con redirect 308
 para links legacy. Slug autogenerado por trigger DB, inmutable.
 
-- [ ] Como anon: navegar a una URL UUID legacy
-      (`/property/<uuid-de-una-active>`) → URL del browser cambia a
-      `/property/<slug>` con 308 (verificar en devtools Network).
-      Detalle se renderiza normal.
-- [ ] Como anon: navegar directo a `/property/<slug>` → 200, sin
-      redirect (verificar en devtools).
-- [ ] Como anon: navegar a `/property/<slug-de-archivada>` → 404 (la
-      RLS `for select to anon where listing_status = 'active'` la
-      filtra). Verificar con un slug obtenido directo de DB de una
-      property archivada.
-- [ ] Como agent: editar una property propia → la sección "URL pública"
-      del form muestra el slug actual read-only. Cambiar el title +
-      Guardar → la URL pública mostrada NO cambia (slug inmutable).
-      Volver al dashboard, click en el title → URL navegada usa el slug.
-- [ ] Como agent: crear property nueva → el form NO muestra "URL
-      pública". Tras guardar como `published`, abrir desde el dashboard
-      → la URL del browser tiene formato esperado
-      `casa-...-ciudad-<4hex>`.
-- [ ] Como user con notif pendiente que referencia property (p. ej.
-      `new_property`): abrir dropdown, click → navega primero al UUID,
-      luego 308 al slug. Verificar en Network tab que se ve el 308 (no
-      es solo un client-side redirect).
-- [ ] Como agent: agendar visita a property A → al recibir notif de
-      tipo `visit_confirmed` (otro user), click → navegación final
-      termina en `/property/<slug>`.
-- [ ] `/property/<slug>/schedule` carga 200 para user no-owner; para
-      owner redirige a dashboard. Mismo comportamiento que hoy con UUID.
+> **Smoke ejecutado 2026-05-29 (Dario, playwright-cli headed + curl + REST).**
+> Resumen: 6/8 PASAN. 2 hallazgos abajo (redirect NO es 308 HTTP; Check 7
+> del spec estaba mal escrito). 1 observación de bug ortogonal (form de
+> edición de property no persiste cambios vía UI). Detalle por check.
+
+- [x] **Como anon: UUID legacy active → redirige a slug.** La URL del
+      browser cambia a `/property/<slug>` y el detalle renderiza normal.
+      **HALLAZGO (no es 308 HTTP):** la ruta `/property/[slug]` tiene
+      `loading.tsx`, lo que la vuelve un _streaming context_. En streaming,
+      Next 16 NO emite un 308 HTTP — inserta
+      `<meta id="__next-page-redirect" http-equiv="refresh" url=/property/<slug>>`
+      y el redirect ocurre **client-side** (confirmado con curl en dev :3000
+      y prod :3100: ambos devuelven `200 OK` + el meta-refresh, num_redirects=0).
+      El comentario en `page.tsx:48` ("El 308 ... SEO lo preserva como
+      permanente") es **incorrecto** para esta ruta: un meta-refresh no
+      equivale a un 308 a ojos de Google. Ver doc Next
+      `redirect.md:11` ("When used in a streaming context, this will insert
+      a meta tag to emit the redirect on the client side"). **Acción
+      sugerida:** o aceptar el meta-refresh y corregir el comentario, o
+      mover el redirect legacy a Proxy/middleware para emitir un 308 real.
+      Agregado al backlog como `property_legacy_redirect_not_308`.
+      (2026-05-29)
+- [x] Como anon: navegar directo a `/property/<slug>` → `200 OK`, sin
+      meta-refresh (verificado con curl: `__next-page-redirect` count = 0).
+      (2026-05-29)
+- [x] Como anon: navegar a slug de property NO-active (pending
+      `sunset-apartments-miami-c315`) → **renderiza la página 404**
+      (heading "404", title "404: This page could not be found"). La RLS
+      `for select to anon where listing_status='active'` la filtra. Nota:
+      el status HTTP es `200` (mismo artefacto de streaming que el
+      redirect — `notFound()` también viaja en el payload), pero el
+      usuario ve 404. Funcionalmente correcto. (2026-05-29)
+- [x] Como agent (marcus): el form de edición muestra la sección "URL
+      pública" con el slug en un `<code>` read-only +
+      "La URL no cambia aunque edites el título. Generada al crear la
+      propiedad." **Inmutabilidad confirmada a nivel trigger DB:** un
+      UPDATE directo del `title` NO regenera el `slug` (el trigger solo
+      genera al crear). El link "Ver" del dashboard usa el slug.
+      **OBS (bug ortogonal — YA CORREGIDO):** el form de edición NO
+      persistía el cambio de título vía UI (la action redirigía a
+      /dashboard pero el title seguía igual en DB). Confirmado como bug
+      REAL (no artefacto): stale closure en el `useCallback` `submit` de
+      `PropertyForm.tsx` que omitía `state.values` en sus deps y
+      serializaba valores stale. **Corregido y verificado 2026-05-29**
+      (`doSubmit` → useCallback con deps completas; reviewer APPROVED).
+      Feature `property_edit_form_not_persisting` cerrada `done`.
+      (2026-05-29)
+- [x] Como agent: el form de **creación** NO muestra "URL pública"
+      (0 ocurrencias). **Slug autogenerado confirmado:** al insertar una
+      property nueva (title "Casa Smoke Test Pretty Url", city "Austin",
+      type "house") el trigger generó
+      `casa-smoke-test-pretty-url-austin-a74b` — formato
+      `<title-slug>-<ciudad>-<4hex>` correcto (los 4 hex coinciden con el
+      prefijo del UUID). La property fue navegable por su slug (200) y su
+      UUID redirigió al slug. Limpiada tras el test. **OBS:** no se pudo
+      publicar vía el form UI — los 3 inputs numéricos (precio/área/año)
+      no registran su valor en el estado de React con playwright-cli
+      (validación Zod los ve `null`), limitación de la herramienta con
+      inputs controlados, no del feature. La garantía core se validó a
+      nivel trigger DB. (2026-05-29)
+- [x] Como user (elena) con notif `price_drop` que referencia property:
+      abrir dropdown, click → la navegación termina en
+      `/property/skyline-penthouse-new-york-8d2f` (slug). En Network se ve
+      el RSC fetch al **UUID** (`8d2f4e57...` → 200 con el redirect en el
+      payload RSC) seguido del fetch al **slug**. Confirma UUID→slug,
+      aunque en navegación SPA el redirect viaja en el payload RSC (200),
+      no como 308 HTTP (consistente con el hallazgo del primer check).
+      (2026-05-29)
+- [x] ~~Como agent: notif `visit_confirmed` → click → termina en
+      `/property/<slug>`.~~ **SPEC ERRÓNEO — comportamiento real es
+      correcto.** En `src/lib/notifications/derive.ts:43-45`, las notifs
+      `visit_confirmed` y `visit_reminder` con `visit_id` navegan SIEMPRE
+      a `/profile?tab=visits`, NUNCA a `/property/<slug>` (por diseño:
+      gestión de visitas, no detalle público). Verificado como david:
+      click en "Nueva visita agendada" → `/profile?tab=visits`. Las notifs
+      que SÍ van a property (`new_property`/`price_drop`/`favorite_update`,
+      derive.ts:38-41) ya se validaron en el check anterior. Este check
+      del spec debe corregirse/eliminarse. (2026-05-29)
+- [x] `/property/<slug>/schedule`: como **no-owner** (elena sobre
+      `forest-retreat-portland-8086`) → 200, URL se mantiene, renderiza el
+      scheduler ("Agendar una visita" / "Horarios disponibles" /
+      "Confirmar visita"). Como **owner** (david sobre su propia property)
+      → redirige a `/dashboard/properties/<uuid>/edit` (lo saca del flujo
+      de agendar). Mismo comportamiento que con UUID. (2026-05-29)
 
 ### `admin_user_directory` (cerrada 2026-05-26)
 

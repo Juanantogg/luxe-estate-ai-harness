@@ -45,3 +45,6 @@ next-env.d.ts
 
 # progress index (efímero, no se commitea)
 progress/current.md
+
+# Artefactos de playwright-cli (snapshots, logs)
+.playwright-cli/
