@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { Footer } from '@/components/layout/Footer';
 import {
   FavoriteButton,
@@ -15,10 +15,11 @@ import { Badge, Icon } from '@/components/ui';
 import { getImageUrl } from '@/lib/images/get-image-url';
 import { deriveBadge, deriveListingBadge } from '@/lib/properties/derive-badges';
 import { getPropertyDetail, getUserFavoriteIds } from '@/lib/properties/queries';
+import { getPropertyUrl } from '@/lib/properties/urls';
 import { createClient } from '@/lib/supabase/server';
 
 interface PropertyDetailPageProps {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -31,22 +32,37 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
  * - `notFound()` si RLS oculta la propiedad o no existe (incluye el caso
  *   anon viendo una propiedad no-`active`).
  * - Heart, CTAs y bloques de contacto se degradan a redirects de login
- *   con `next=/property/[id]` cuando no hay sesión.
+ *   con `next=/property/[slug]` cuando no hay sesión.
  * - Si el visitante es el dueño, los CTAs cambian a "Editar en dashboard"
  *   y se oculta el heart.
+ * - Si el segmento recibido es un UUID legacy (URLs viejas cacheadas en
+ *   browsers, emails o motores de búsqueda), se resuelve el slug actual
+ *   de la fila y se hace `permanentRedirect` (308) a `/property/<slug>`.
  */
 export default async function PropertyDetailPage({ params }: PropertyDetailPageProps) {
-  const { id } = await params;
-  if (!UUID_REGEX.test(id)) notFound();
+  const { slug } = await params;
 
   const supabase = await createClient();
+
+  // Compatibilidad con URLs legacy: si llega un UUID, buscamos el slug real
+  // y redirigimos 308. El 308 (vs 307) es deliberado: SEO lo preserva como
+  // canónico y los browsers cachean el target evitando loops.
+  if (UUID_REGEX.test(slug)) {
+    const { data: legacyRow, error: legacyError } = await supabase
+      .from('properties')
+      .select('slug')
+      .eq('id', slug)
+      .maybeSingle();
+    if (legacyError || !legacyRow) notFound();
+    permanentRedirect(`/property/${legacyRow.slug}`);
+  }
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
   const isAuthenticated = Boolean(user);
 
-  const property = await getPropertyDetail(supabase, id, { isAuthenticated });
+  const property = await getPropertyDetail(supabase, { slug }, { isAuthenticated });
   if (!property) notFound();
 
   const isOwner = Boolean(user && property.owner_id === user.id);
@@ -96,7 +112,7 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
             propertyId={property.id}
             initialIsFavorite={isFavorite}
             isAuthenticated={isAuthenticated}
-            redirectNext={`/property/${property.id}`}
+            redirectNext={getPropertyUrl(property)}
             size="lg"
           />
         </div>

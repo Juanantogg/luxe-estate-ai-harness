@@ -26,6 +26,7 @@ type SupabaseDb = SupabaseClient<Database>;
  */
 export interface PropertyForManagement {
   id: string;
+  slug: string;
   title: string;
   address_line: string;
   city: string;
@@ -67,7 +68,7 @@ export interface DashboardListResult {
 }
 
 const LIST_SELECT_BASE = `
-  id, title, address_line, city, price,
+  id, slug, title, address_line, city, price,
   listing_type, listing_status, bedrooms, bathrooms, area_sqm,
   published_at, updated_at, owner_id,
   property_images ( storage_path, alt_text, is_main, position )

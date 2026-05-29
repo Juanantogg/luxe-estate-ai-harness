@@ -4,7 +4,7 @@
  * No editar a mano. Para regenerar:
  *   pnpm db:types
  *
- * Última regeneración: 2026-05-26 (mig 0020 + 0021 + 0022 + 0023).
+ * Última regeneración: 2026-05-27 (mig 0028 properties_slug).
  */
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
@@ -290,6 +290,7 @@ export type Database = {
           property_type: Database['public']['Enums']['property_type'];
           published_at: string | null;
           search_vector: unknown;
+          slug: string;
           sold_at: string | null;
           state: string | null;
           timezone: string;
@@ -321,6 +322,10 @@ export type Database = {
           property_type: Database['public']['Enums']['property_type'];
           published_at?: string | null;
           search_vector?: unknown;
+          // slug es required en DB pero el trigger BEFORE INSERT lo
+          // setea cuando viene NULL — los Insert calls NO necesitan
+          // pasarlo (override manual del generator de Supabase).
+          slug?: string;
           sold_at?: string | null;
           state?: string | null;
           timezone?: string;
@@ -352,6 +357,7 @@ export type Database = {
           property_type?: Database['public']['Enums']['property_type'];
           published_at?: string | null;
           search_vector?: unknown;
+          slug?: string;
           sold_at?: string | null;
           state?: string | null;
           timezone?: string;
@@ -503,6 +509,10 @@ export type Database = {
         Args: never;
         Returns: Database['public']['Enums']['user_role'];
       };
+      generate_property_slug: {
+        Args: { p_city: string; p_id: string; p_title: string };
+        Returns: string;
+      };
       get_agent_occupied_slots: {
         Args: { agent: string; from_ts: string; to_ts: string };
         Returns: {
@@ -511,6 +521,7 @@ export type Database = {
       };
       is_admin: { Args: never; Returns: boolean };
       is_agent_or_above: { Args: never; Returns: boolean };
+      unaccent: { Args: { '': string }; Returns: string };
     };
     Enums: {
       amenity_key:

@@ -505,7 +505,7 @@
         "Notification payloads que referencian properties NO cambian (siguen guardando property_id UUID); el resolver en el dropdown resuelve slug al renderizar",
         "Smoke test manual: navegar a /property/<uuid> viejo → redirige a /property/<slug>; navegar directo a /property/<slug> → 200; archivar property → 404 en /property/<slug> (RLS lo cubre)"
       ],
-      "status": "pending",
+      "status": "in_progress",
       "notes": "Surge de smoke test 2026-05-26 (Dario): 'URLs amigables /property/<slug>'. Decisión cerrada antes del designer: slug autogenerado en DB (no en code) para garantizar idempotencia y unicidad cross-cliente. Suffix de 4 chars del UUID en lugar de número incremental para evitar lookup pre-insert. Riesgo: títulos en español con acentos requieren normalización Unicode NFD — la función SQL la hace con `translate` sobre el rango de caracteres acentuados o usar la extensión `unaccent` si está disponible. Verificar advisor de seguridad: la función debe ser `SECURITY INVOKER STABLE` (no DEFINER) porque solo lee args + IMMUTABLE en realidad; el trigger sí necesita SECURITY DEFINER si va a ser invocado por anon/authenticated."
     },
     {

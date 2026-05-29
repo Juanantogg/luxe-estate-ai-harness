@@ -25,6 +25,7 @@ export {
   type PropertyDetailImage,
   type PropertyForEdit,
   type PropertyForEditImage,
+  type PropertyLookup,
   type OwnerPublicProfile,
   type OwnerProfileFull,
   type PropertyType,
@@ -34,6 +35,7 @@ export {
   type NewInMarketOptions,
   type NewInMarketResult,
 } from './queries';
+export { getPropertyUrl, getPropertyScheduleUrl } from './urls';
 export { AMENITY_LABEL_ES, AMENITY_ICON, type AmenityKey } from './amenities';
 export {
   toggleFavorite,

@@ -20,6 +20,7 @@ export type UserRole = Database['public']['Enums']['user_role'];
  */
 export interface PropertyForCard {
   id: string;
+  slug: string;
   title: string;
   address_line: string;
   city: string;
@@ -39,7 +40,7 @@ export interface PropertyForCard {
 }
 
 const SELECT_COLUMNS = `
-  id, title, address_line, city, state, country, price, previous_price,
+  id, slug, title, address_line, city, state, country, price, previous_price,
   listing_type, property_type, bedrooms, bathrooms, area_sqm,
   is_featured, is_premium, published_at,
   property_images!inner ( storage_path, alt_text, is_main, position )
@@ -47,6 +48,7 @@ const SELECT_COLUMNS = `
 
 interface RawPropertyRow {
   id: string;
+  slug: string;
   title: string;
   address_line: string;
   city: string;
@@ -75,6 +77,7 @@ function toPropertyForCard(row: RawPropertyRow): PropertyForCard {
     row.property_images.find((img) => img.is_main) ?? row.property_images[0] ?? null;
   return {
     id: row.id,
+    slug: row.slug,
     title: row.title,
     address_line: row.address_line,
     city: row.city,
@@ -216,7 +219,7 @@ export async function getUserFavorites(
       `
       created_at,
       properties!inner (
-        id, title, address_line, city, state, country, price, previous_price,
+        id, slug, title, address_line, city, state, country, price, previous_price,
         listing_type, property_type, bedrooms, bathrooms, area_sqm,
         is_featured, is_premium, published_at, listing_status,
         property_images!inner ( storage_path, alt_text, is_main, position )
@@ -307,6 +310,7 @@ export interface PropertyDetailImage {
 
 export interface PropertyForDetail {
   id: string;
+  slug: string;
   title: string;
   description: string | null;
   price: number;
@@ -369,6 +373,7 @@ export async function getOwnerPublicProfile(
 
 interface RawDetailRow {
   id: string;
+  slug: string;
   title: string;
   description: string | null;
   price: number | string;
@@ -404,7 +409,7 @@ interface RawDetailRow {
 }
 
 const DETAIL_SELECT_AUTHED = `
-  id, title, description, price, previous_price,
+  id, slug, title, description, price, previous_price,
   listing_type, listing_status, property_type,
   address_line, city, state, country, postal_code,
   latitude, longitude,
@@ -418,7 +423,7 @@ const DETAIL_SELECT_AUTHED = `
 `;
 
 const DETAIL_SELECT_ANON = `
-  id, title, description, price, previous_price,
+  id, slug, title, description, price, previous_price,
   listing_type, listing_status, property_type,
   address_line, city, state, country, postal_code,
   latitude, longitude,
@@ -444,6 +449,7 @@ function toPropertyDetail(row: RawDetailRow, owner: OwnerProfileFull | null): Pr
 
   return {
     id: row.id,
+    slug: row.slug,
     title: row.title,
     description: row.description,
     price: Number(row.price),
@@ -475,6 +481,17 @@ function toPropertyDetail(row: RawDetailRow, owner: OwnerProfileFull | null): Pr
 }
 
 /**
+ * Lookup polimórfico para `getPropertyDetail`:
+ * - `{ slug }` → query pública por slug (uso normal del page público).
+ * - `{ id }`   → query por UUID (usado por el redirect 308 UUID→slug y
+ *   por contextos server-internos que ya conocen el ID).
+ *
+ * Exclusivos via discriminated union para que TypeScript exija exactamente
+ * una clave.
+ */
+export type PropertyLookup = { id: string } | { slug: string };
+
+/**
  * Carga el detalle completo de una propiedad (joins con images, amenities y
  * owner profile). Devuelve `null` si RLS la oculta o no existe; el caller
  * decide entre `notFound()` o redirect.
@@ -490,15 +507,13 @@ function toPropertyDetail(row: RawDetailRow, owner: OwnerProfileFull | null): Pr
  */
 export async function getPropertyDetail(
   supabase: SupabaseDb,
-  id: string,
+  lookup: PropertyLookup,
   opts: { isAuthenticated: boolean } = { isAuthenticated: false },
 ): Promise<PropertyForDetail | null> {
   const select = opts.isAuthenticated ? DETAIL_SELECT_AUTHED : DETAIL_SELECT_ANON;
-  const { data, error } = await supabase
-    .from('properties')
-    .select(select)
-    .eq('id', id)
-    .maybeSingle();
+  let query = supabase.from('properties').select(select);
+  query = 'slug' in lookup ? query.eq('slug', lookup.slug) : query.eq('id', lookup.id);
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     console.warn('[getPropertyDetail] query failed', error);
@@ -536,6 +551,7 @@ export interface PropertyForEditImage {
 
 export interface PropertyForEdit {
   id: string;
+  slug: string;
   owner_id: string;
   title: string;
   description: string | null;
@@ -560,6 +576,7 @@ export interface PropertyForEdit {
 
 interface RawEditRow {
   id: string;
+  slug: string;
   owner_id: string;
   title: string;
   description: string | null;
@@ -589,7 +606,7 @@ interface RawEditRow {
 }
 
 const EDIT_SELECT_COLUMNS = `
-  id, owner_id, title, description, price,
+  id, slug, owner_id, title, description, price,
   listing_type, listing_status, property_type,
   address_line, city, state, country, postal_code,
   bedrooms, bathrooms, area_sqm, parking_spaces, year_built,
@@ -639,6 +656,7 @@ export async function getPropertyForEdit(
 
   return {
     id: row.id,
+    slug: row.slug,
     owner_id: row.owner_id,
     title: row.title,
     description: row.description,
