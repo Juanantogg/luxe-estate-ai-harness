@@ -171,6 +171,36 @@ Se ampliará en Fase 2 con neutrales y semánticos derivados de `docs/designs/`.
   features grandes (pantalla nueva, cambios de auth, refactors multi-archivo)
   se benefician de cerrar el spec antes de codificar.
 
+### Overlays `position: fixed` dentro del TopNav → portalizar a `document.body`
+- **El problema**: el `<nav>` del `TopNav` es sticky con `backdrop-blur-md`
+  (`backdrop-filter: blur`). Por spec CSS, un elemento con `backdrop-filter`
+  distinto de `none` se convierte en el **containing block de TODOS sus
+  descendientes `position: fixed`** (lo mismo aplica a `transform`, `filter`,
+  `perspective`, `will-change` de esas props, y `contain: paint/layout`).
+- **La consecuencia**: cualquier overlay/panel/drawer con `fixed` que se
+  renderice DENTRO del nav (porque su trigger vive ahí: bell, avatar,
+  hamburguesa) se ancla al nav (~64px de alto), NO al viewport. Síntoma:
+  bottom-sheets que aparecen pegados al navbar, drawers que ocupan una tira
+  de 64px en vez de la pantalla, overlays que solo oscurecen la barra.
+- **La regla**: todo elemento `position: fixed` que deba anclarse al viewport
+  y cuyo trigger viva en el TopNav **debe portalizarse a `document.body`**
+  con `createPortal` de `react-dom`. Guard SSR-safe:
+  `typeof document !== 'undefined'` (NO `useState(mounted)` + effect, que
+  dispara la regla `react-hooks/set-state-in-effect` activa en el repo). Las
+  refs (`panelRef`/`triggerRef`) siguen funcionando tras el portal porque
+  apuntan al nodo, no a su posición en el árbol React; el outside-click vía
+  `ref.contains(target)` se mantiene.
+- **Casos ya migrados** (2026-05-29, los 3 con la misma causa raíz):
+  `NotificationsDropdown` (bottom-sheet móvil + popover desktop anclado por
+  coordenadas reales del trigger), `MobileNavDrawer` (drawer full-screen).
+  Si en el futuro el popover desktop necesita anclarse al trigger tras el
+  portal, NO uses `sm:absolute` (deja de anclar al perder el ancestro
+  `.relative`): medí `triggerRef.getBoundingClientRect()` en runtime y aplicá
+  `top`/`right` vía `style` inline, con listeners de `resize`/`scroll`.
+- **Alternativa descartada**: mover el `backdrop-blur` a una capa hermana del
+  nav eliminaría la causa, pero el portal es más localizado y no toca el
+  TopNav (Server Component compartido por 3 variants).
+
 ## Convenciones de código
 
 Reglas duras universales (cero hex en JSX, await params, Server Components

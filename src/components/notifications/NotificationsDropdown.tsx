@@ -1,7 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { markAllAsRead, markAsRead } from '@/lib/notifications/actions';
 import {
   getNotificationBucket,
@@ -88,6 +89,54 @@ export function NotificationsDropdown({
     isLoading: true,
   });
   const [isMarkingAll, setIsMarkingAll] = useState(false);
+
+  // Posicionamiento desktop (sm+): coordenadas reales del trigger en vez de
+  // offsets mágicos. `desktopPos` se mide del `getBoundingClientRect` del bell;
+  // `isDesktop` decide si aplicamos el `style` inline (en mobile gana el
+  // bottom-sheet por clases). Ambos null/false en el primer render SSR-safe.
+  const [desktopPos, setDesktopPos] = useState<{ top: number; right: number } | null>(null);
+  // Lazy initializer: lee el breakpoint en el primer render para evitar pintar
+  // un frame como bottom-sheet en desktop antes de que corra el effect de
+  // `matchMedia`. SSR-safe vía `typeof window` (este panel solo monta en
+  // cliente tras el click, pero el guard mantiene el initializer puro).
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches,
+  );
+
+  // Mide la posición del popover bajo el bell, anclado por el borde derecho.
+  // `useLayoutEffect` evita el flash de posición incorrecta en el primer paint.
+  // El `setState` vive dentro del callback `update()` (no incondicional en el
+  // cuerpo del effect), patrón aceptado por `react-hooks/set-state-in-effect`.
+  useLayoutEffect(() => {
+    const update = () => {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      // 8px de gap bajo el bell (≈ el `top-12` original); alineado derecha↔derecha.
+      setDesktopPos({
+        top: Math.round(rect.bottom + 8),
+        right: Math.round(window.innerWidth - rect.right),
+      });
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [triggerRef]);
+
+  // Detecta el breakpoint `sm` (640px de Tailwind por default) para decidir si
+  // aplicamos el `style` inline desktop. Tailwind no condiciona inline styles
+  // por media query, así que necesitamos el flag en JS.
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 640px)');
+    const onChange = () => setIsDesktop(mql.matches);
+    onChange();
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
 
   // Sincroniza el conteo local hacia el padre (NotifBell pinta el dot rojo).
   useEffect(() => {
@@ -284,7 +333,38 @@ export function NotificationsDropdown({
   const showEmpty = !state.isLoading && state.items.length === 0;
   const showLoading = state.isLoading && state.items.length === 0;
 
-  return (
+  // Guard SSR-safe para el portal: `createPortal` necesita `document.body`,
+  // ausente en el server. Usamos `typeof document` evaluado en render (en vez
+  // de un `useState(mounted)` + effect, que dispararía la regla
+  // `react-hooks/set-state-in-effect` ya vigente en el repo). No hay riesgo de
+  // mismatch de hidratación porque el panel SOLO se renderiza tras el click del
+  // usuario (post-hidratación): el NotifBell monta este componente con
+  // `{isOpen && <NotificationsDropdown />}`, nunca durante el SSR inicial.
+  if (typeof document === 'undefined') return null;
+
+  // Overlay + dialog se portalizan a `document.body` para sacarlos del
+  // subárbol del `<nav>` del TopNav. El nav tiene `backdrop-filter: blur`,
+  // lo que por spec CSS lo convierte en el containing block de TODOS sus
+  // descendientes `position: fixed`. Mientras vivían dentro del nav, su
+  // `fixed` se anclaba al nav (~64px) en vez del viewport: en mobile el
+  // bottom-sheet quedaba pegado al navbar y el overlay solo cubría el alto
+  // del nav. Al portalizar a body recuperan el viewport como containing block.
+  //
+  // Desktop (sm+): el popover seguía usando `sm:absolute` anclado al
+  // `.relative` del NotifBell. Tras el portal eso ya no aplica (el dialog deja
+  // de ser descendiente del bell). Los offsets de clase mágicos
+  // (`sm:right-6 lg:right-8`, `sm:top-[60px]`) no replicaban la posición real
+  // del bell (desfase de ~48px a la derecha y desfase de top en variants
+  // dashboard/admin). Solución: anclar por coordenadas reales del trigger
+  // medidas en runtime (`desktopPos` desde `getBoundingClientRect`), aplicadas
+  // vía `style` inline SOLO en desktop (`isDesktop`). El borde derecho y el top
+  // del popover coinciden EXACTO con el bell en cualquier viewport y variant.
+  // En mobile (`isDesktop === false`) no hay `style` inline → ganan las clases
+  // del bottom-sheet (`fixed inset-x-0 bottom-0 ...`).
+  const desktopStyle =
+    isDesktop && desktopPos ? { top: desktopPos.top, right: desktopPos.right } : undefined;
+
+  return createPortal(
     <>
       {/* Overlay mobile — click cierra. Oculto en sm+. */}
       <button
@@ -302,12 +382,21 @@ export function NotificationsDropdown({
         aria-labelledby="notifications-title"
         aria-busy={state.isLoading || undefined}
         id={id}
+        style={desktopStyle}
         className={cn(
-          // Mobile: bottom-sheet full width.
-          'fixed inset-x-0 bottom-0 z-50 flex max-h-[80vh] flex-col overflow-hidden rounded-t-xl border-t border-divider bg-surface shadow-dropdown',
+          // Mobile: bottom-sheet full width anclado al viewport. Solo las
+          // esquinas SUPERIORES redondeadas (las inferiores tocan el piso).
+          // Se usan utilities por esquina (`rounded-tl-xl rounded-tr-xl`) en
+          // vez de `rounded-t-xl` para no mezclar especificidad top vs all con
+          // el `sm:rounded-lg` de desktop.
+          'fixed inset-x-0 bottom-0 z-50 flex max-h-[80vh] flex-col overflow-hidden rounded-tl-xl rounded-tr-xl border-t border-divider bg-surface shadow-dropdown',
           'duration-200 animate-in slide-in-from-bottom',
-          // sm+: popover anclado al NotifBell.
-          'sm:absolute sm:inset-auto sm:top-12 sm:right-0 sm:bottom-auto sm:max-h-[28rem] sm:w-[22rem] sm:max-w-sm sm:rounded-lg sm:border sm:slide-in-from-top-2',
+          // sm+: forma de popover. La POSICIÓN viene de `desktopStyle` (top/right
+          // reales del bell). `sm:inset-x-auto sm:bottom-auto` neutraliza el
+          // anclaje bottom-sheet para que `top`/`right` inline manden.
+          // `sm:rounded-lg` aplica los 4 radios parejos (las superiores móviles
+          // eran `xl`; aquí bajan a `lg`, igual que el avatar dropdown).
+          'sm:inset-x-auto sm:bottom-auto sm:max-h-[28rem] sm:w-[22rem] sm:max-w-sm sm:rounded-lg sm:border sm:slide-in-from-top-2',
         )}
       >
         <NotificationsHeader
@@ -348,7 +437,8 @@ export function NotificationsDropdown({
           )}
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 

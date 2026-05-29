@@ -23,19 +23,36 @@ sesiones múltiples, etc.).
 Spec original tenía 17 pasos end-to-end, diferidos hasta que existiera
 `login_screen`. Hoy login_screen existe — el test es ejecutable.
 
-- [ ] Login con email/password de seed (admin@luxe-estate.test) →
-      redirige a `/admin`.
-- [ ] Login con seed agent (marcus@luxe-estate.test) → redirige a
-      `/dashboard`.
-- [ ] Login con seed user (elena@luxe-estate.test) → redirige a `/`.
+> **Smoke ejecutado 2026-05-29 (Dario, playwright-cli headed).** Los checks
+> que NO requieren email real ni OAuth: 5/5 PASAN (login 3 roles +
+> 2 de middleware). Los 3 restantes (signup+verificación, Google OAuth,
+> password reset) siguen pendientes porque requieren email/OAuth real.
+> Password de todos los users seed: `LuxeEstateSeed2026!`. Login screen
+> renderiza solo Google + email/password (sin Apple/FB, como manda
+> CLAUDE.md). NOTA sobre el check de signup duplicado: ver abajo.
+
+- [x] Login con email/password de seed (admin@luxe-estate.test) →
+      redirige a `/admin/users` (cae en `/admin`; `/admin` redirige a
+      `/admin/users`). (2026-05-29)
+- [x] Login con seed agent (marcus@luxe-estate.test) → redirige a
+      `/dashboard`. (2026-05-29)
+- [x] Login con seed user (elena@luxe-estate.test) → redirige a `/`.
+      (2026-05-29)
 - [ ] Signup con email nuevo → recibe correo de verificación → click
-      link → entra a `/`.
-- [ ] Signup con email ya registrado → error inline en form.
-- [ ] Google OAuth → flujo completo.
+      link → entra a `/`. **NO EJECUTADO** (requiere email real).
+- [ ] Signup con email ya registrado → error inline en form. **NO
+      EJECUTADO en este smoke** (Supabase no revela si el email existe por
+      diseño anti-enumeración; el comportamiento real conviene validarlo
+      junto con el flujo de signup+email cuando se libere el rate-limit).
+- [ ] Google OAuth → flujo completo. **NO EJECUTADO** (requiere cuenta
+      Google real / consent screen).
 - [ ] Request password reset → recibe correo → click link → cambia
-      password → puede login con nueva.
-- [ ] Middleware: navegar a `/profile` sin sesión → redirige a `/login`.
-- [ ] Middleware: navegar a `/admin` siendo user → 404 (no admin).
+      password → puede login con nueva. **NO EJECUTADO** (requiere email
+      real).
+- [x] Middleware: navegar a `/profile` sin sesión → redirige a `/login`.
+      (2026-05-29, cookies limpias → `/profile` rebota a `/login`)
+- [x] Middleware: navegar a `/admin` siendo user → 404 (no admin).
+      (2026-05-29, elena/user navegó a `/admin` → 404)
 
 ### `app_shell` (cerrada 2026-05-22)
 
@@ -56,7 +73,21 @@ Spec original tenía 17 pasos end-to-end, diferidos hasta que existiera
 > 4 links muertos en variants dashboard/admin (revisar al testear esas
 > variants).
 
-- [ ] Mobile (≤640px): nav colapsa a hamburguesa abriendo drawer.
+- [x] Mobile (≤640px): nav colapsa a hamburguesa abriendo drawer.
+      **FALLABA — CORREGIDO el mismo día (misma causa raíz que el
+      bottom-sheet de notificaciones).** El bug: a 375px el drawer no
+      ocupaba la pantalla, aparecía como una tira de ~64px pegada al navbar
+      (panel height=64 en vez de 800; overlay también 64px). **Causa:** el
+      `<nav>` sticky tiene `backdrop-blur-md` (`backdrop-filter: blur`), que
+      por spec CSS lo convierte en containing block de sus descendientes
+      `position: fixed`. El `MobileNavDrawer` se renderiza dentro del nav,
+      así que su `<div fixed inset-0>` raíz se anclaba al nav, no al
+      viewport. **Fix aplicado** (reviewer APPROVED): portalizar el bloque
+      overlay+panel a `document.body` con `createPortal`. Verificado
+      post-fix: panel height=800 (full viewport), anclado a la derecha,
+      overlay full-screen con parent=body; Escape / click-overlay / X del
+      header / click-en-link cierran correctamente; focus-trap y scroll-lock
+      intactos. (2026-05-29)
 - [x] Avatar dropdown muestra links según rol y signOut funciona.
       (2026-05-26, elena role=user: dropdown muestra solo "Perfil" +
       "Cerrar sesión"; signOut redirige a /login)
@@ -197,20 +228,33 @@ Matriz de links esperada por variant/sesión:
 Verificar que el helper `isLinkActive` relajado marca 'Comprar' activo
 para los 3 estados del `ListingTypeToggle` correctamente.
 
-- [ ] Navegar a `/` (sin query) → TopNav 'Comprar' activo, 'Rentar'
-      inactivo.
-- [ ] En la home, clickear toggle "Comprar" → URL pasa a
+> **Smoke ejecutado 2026-05-29 (Dario, playwright-cli headed + eval del
+> `aria-current`).** 6/6 PASAN. El link activo se marca con
+> `aria-current="page"` (en TopNav `NavLinks` y en `MobileNavDrawer`); el
+> toggle de la home usa `aria-pressed`. Se verificó ambos atributos en cada
+> estado. El bug original (`/?listing=sale` no marcaba 'Comprar') quedó
+> confirmado como corregido.
+
+- [x] Navegar a `/` (sin query) → TopNav 'Comprar' activo, 'Rentar'
+      inactivo. (2026-05-29, `aria-current`: Comprar=page, Rentar=null)
+- [x] En la home, clickear toggle "Comprar" → URL pasa a
       `/?listing=sale` → TopNav 'Comprar' SIGUE activo, 'Rentar'
-      inactivo.
-- [ ] Clickear toggle "Rentar" → URL pasa a `/?listing=rent` → TopNav
-      'Rentar' activo, 'Comprar' inactivo.
-- [ ] Clickear toggle "Todas" → URL vuelve a `/` → TopNav 'Comprar'
-      activo nuevamente.
-- [ ] Mobile drawer: abrir hamburguesa en cada uno de los 3 estados,
+      inactivo. (2026-05-29, URL=/?listing=sale, Comprar=page; toggle
+      Comprar aria-pressed=true)
+- [x] Clickear toggle "Rentar" → URL pasa a `/?listing=rent` → TopNav
+      'Rentar' activo, 'Comprar' inactivo. (2026-05-29, URL=/?listing=rent,
+      Rentar=page, Comprar=null)
+- [x] Clickear toggle "Todas" → URL vuelve a `/` → TopNav 'Comprar'
+      activo nuevamente. (2026-05-29, URL=/, Comprar=page)
+- [x] Mobile drawer: abrir hamburguesa en cada uno de los 3 estados,
       verificar que el link resaltado coincide con el TopNav desktop.
-- [ ] Navegar manualmente a `/?listing=foo` (valor desconocido) →
+      (2026-05-29, viewport 375px: drawer en / → Comprar=page; en
+      /?listing=sale → Comprar=page; en /?listing=rent → Rentar=page.
+      Coincide con desktop en los 3.)
+- [x] Navegar manualmente a `/?listing=foo` (valor desconocido) →
       NINGÚN link del TopNav queda activo (comportamiento defensivo
-      intencional).
+      intencional). (2026-05-29, Comprar=null, Rentar=null — pese a que
+      'Comprar' es href=/, el listing=foo evita el match)
 
 ### `property_pretty_urls` (cerrada 2026-05-29)
 
@@ -336,28 +380,73 @@ Smoke tests del spec §10 R10. La feature no tiene mockup y no hay
 referencias previas en el repo de un panel similar, así que estos tests
 son la primera validación visual.
 
-- [ ] Abrir el panel con notifs sin leer (elena@luxe-estate.test tiene
-      notificaciones del seed): ver bucket "Hoy" en el header, items con
-      dot izquierdo y `bg-primary-soft` en los unread.
-- [ ] Click en notif con `property_id` → navega a `/property/[id]` y
-      desaparece el dot.
-- [ ] Click en notif tipo `system` o `new_message` → solo marca como
-      leída (dot desaparece), NO navega.
-- [ ] Botón "Marcar todas como leídas" → todos los items pierden el dot
-      sin cerrar el panel; el dot rojo del bell se apaga.
-- [ ] Insertar notif vía SQL (`insert into notifications (recipient_id,
-type, title) values (auth.uid(), 'system', 'Test');`) → con la
-      pestaña visible y el panel abierto, esperar 30s → la notif aparece
-      sin recargar.
-- [ ] Pestaña inactiva 1 min → fetch pausado (verificar en Network tab
-      de DevTools que no hay polls); volver al tab → fetch inmediato +
-      reanuda polling.
-- [ ] Mobile (≤640px): el panel se renderiza como bottom-sheet
-      anclado abajo con overlay; click en overlay cierra.
-- [ ] Desktop (≥640px): popover anclado al bell; click fuera cierra.
-- [ ] `Escape` cierra el panel desde cualquier breakpoint.
-- [ ] Empty state: con un user sin notificaciones (crear uno nuevo o
-      truncate de la tabla para él) → ver "No tienes notificaciones".
+> **Smoke ejecutado 2026-05-29 (Dario, playwright-cli headed + service role
+> para datos + Network requests).** 8/10 PASAN, **1 FALLA** (mobile
+> bottom-sheet + overlay rotos por `backdrop-blur` del nav), 1 NO ejecutado
+> (empty state, requiere user limpio). Las 4 notifs del seed de elena
+> estaban en estado leído (las marcó un smoke previo del 27-may); se
+> resetearon a no-leídas para el test y se restauraron a leídas al cerrar.
+> Bucket "Hoy" no aplica: las notifs son del 21-may/27-may, así que caen en
+> "Esta semana" / "Anteriores" (bucketing por fecha correcto).
+
+- [x] Abrir el panel con notifs sin leer (elena@luxe-estate.test): el
+      panel abre como `dialog`, items con dot izquierdo (`bg-primary`) y
+      `bg-primary-soft` en los 4 unread; íconos por tipo (info,
+      chat_bubble, trending_down, notifications_active). Buckets reales:
+      "Esta semana" + "Anteriores" (no "Hoy", ver nota arriba). (2026-05-29)
+- [x] Click en notif con `property_id` (`price_drop`) → navega a
+      `/property/skyline-penthouse-new-york-8d2f` (slug, no UUID — consistente
+      con `property_pretty_urls`) y el conteo del bell baja 4→3 (dot
+      desaparece). (2026-05-29)
+- [x] Click en notif `new_message` (sin property_id) → NO navega (URL
+      sigue `/`), solo marca leída (3→2). **OBS:** el panel se CIERRA tras
+      el click (no queda abierto). Es por diseño: `handleItemClick` en
+      `NotificationsDropdown.tsx:247` llama `onClose()` SIEMPRE, navegue o
+      no. El spec no exige que quede abierto, así que se considera PASA.
+      (2026-05-29)
+- [x] Botón "Marcar todas como leídas" → panel SIGUE abierto, los items
+      pierden dot y `bg-primary-soft` (0/0), el bell pasa de "2 sin leer"
+      a "Notificaciones" (dot rojo apagado). (2026-05-29)
+- [x] Insertar notif vía service role (`type=system`) con panel abierto y
+      pestaña visible → tras ~34s la notif aparece sin recargar (4→5 items,
+      bell "1 sin leer"). Polling de 30s (`POLL_INTERVAL_MS`) confirmado.
+      (2026-05-29)
+- [x] Pestaña inactiva (visibilitychange→hidden): 35s sin un solo poll a
+      `/api/notifications/recent` (contador en 4, delta 0); volver a
+      visible → 1 fetch inmediato (4→5). Pausa + reanudación correctas.
+      (2026-05-29)
+- [x] Mobile (≤640px): el panel se renderiza como bottom-sheet anclado
+      abajo con overlay; click en overlay cierra. **FALLABA — CORREGIDO el
+      mismo día.** El bug: a 375px el `dialog` (`fixed inset-x-0 bottom-0`)
+      NO se anclaba al fondo del viewport (medido rectBottom=64 en vez de
+      800), y el overlay solo cubría 64px. **Causa root:** el `<nav>` sticky
+      tiene `backdrop-blur-md` (`backdrop-filter: blur(12px)`), que por spec
+      CSS convierte al nav en el _containing block_ de sus descendientes
+      `position: fixed`. Como el `NotificationsDropdown` se renderiza DENTRO
+      del nav (el bell vive ahí), su `fixed` se anclaba al nav (~64px), no
+      al viewport. **Fix aplicado** (reviewer APPROVED): (1) portalizar
+      overlay+dialog a `document.body` con `createPortal` → recuperan el
+      viewport como containing block; (2) anclar el popover DESKTOP por
+      coordenadas reales del trigger (`getBoundingClientRect`, medido en
+      runtime con listeners resize/scroll) en vez de offsets de clase
+      mágicos, porque tras el portal el `sm:absolute` ya no anclaba al bell.
+      Verificado post-fix: móvil rectBottom=800 + overlay full-screen +
+      click-overlay cierra; desktop popover right coincide EXACTO con el
+      bell (1200/1200 a 1280px, 828/828 a 900px), top=68, sigue al bell al
+      scrollear. Bonus: se corrigió un radius asimétrico en el popover
+      desktop (las 4 esquinas ahora a 16px=`rounded-lg`, igual que el avatar
+      dropdown; antes el top quedaba recto por `rounded-t-none` + tokens de
+      radius custom del proyecto donde `--radius-lg`=1rem, no 8px). (2026-05-29)
+- [x] Desktop (≥640px): popover anclado al bell (top 68, ancho 352px a la
+      derecha, no full-width); un click real fuera lo cierra. (Nota: el
+      outside-close escucha `pointerdown`, así que un `.click()` sintético
+      no lo dispara — solo el click real con mouse. No es bug.) (2026-05-29)
+- [x] `Escape` cierra el panel y devuelve foco al bell (verificado en
+      desktop). (2026-05-29)
+- [ ] Empty state: con un user sin notificaciones → ver "No tienes
+      notificaciones". **NO EJECUTADO** (requiere crear/truncar un user
+      limpio; el componente `EmptyNotifications` existe pero no se validó
+      en browser).
 
 ### `resend_invitation_button` (cerrada 2026-05-27)
 
