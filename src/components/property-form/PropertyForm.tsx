@@ -342,6 +342,7 @@ export function PropertyForm({ mode, initial, ownerId }: PropertyFormProps) {
               values={state.values}
               errors={state.errors}
               onChange={handleFieldChange}
+              initialSlug={mode === 'edit' ? initial?.slug : undefined}
             />
             <DescriptionSection
               value={state.values.description}

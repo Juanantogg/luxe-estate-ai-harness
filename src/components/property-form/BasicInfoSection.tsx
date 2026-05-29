@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useId } from 'react';
-import { Input } from '@/components/ui';
+import { Icon, Input } from '@/components/ui';
 import {
   getListingTypeOptions,
   getPropertyTypeOptions,
@@ -14,6 +14,13 @@ export interface BasicInfoSectionProps {
   values: Pick<PropertyFormValues, 'title' | 'price' | 'listing_type' | 'property_type'>;
   errors: Record<string, string | undefined>;
   onChange: <K extends keyof PropertyFormValues>(field: K, value: PropertyFormValues[K]) => void;
+  /**
+   * Slug actual de la property en modo edit. Si está definido, se renderiza
+   * el bloque "URL pública" read-only debajo del título. En modo create
+   * (slug aún no generado) se omite por completo. Ver
+   * `progress/property_pretty_urls/design.md` §5.
+   */
+  initialSlug?: string | null;
 }
 
 /**
@@ -22,8 +29,12 @@ export interface BasicInfoSectionProps {
  * Campos: title (text), price (number con prefix $), status=listing_type
  * (select), property_type (select). Layout: title full-width, después
  * grid 3-cols en md+.
+ *
+ * Si `initialSlug` viene definido (modo edit), se agrega un bloque de
+ * display read-only con la URL pública de la property (no es input, no
+ * participa del schema Zod — es metadata inmutable, ver design §5).
  */
-function BasicInfoSectionInner({ values, errors, onChange }: BasicInfoSectionProps) {
+function BasicInfoSectionInner({ values, errors, onChange, initialSlug }: BasicInfoSectionProps) {
   const priceId = useId();
   const listingTypeId = useId();
   const propertyTypeId = useId();
@@ -49,6 +60,24 @@ function BasicInfoSectionInner({ values, errors, onChange }: BasicInfoSectionPro
           error={errors.title}
           autoComplete="off"
         />
+
+        {initialSlug ? (
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted" htmlFor="property-slug-display">
+              URL pública
+            </label>
+            <div
+              id="property-slug-display"
+              className="flex items-center gap-2 rounded-md border border-divider-soft bg-surface-soft px-3 py-2 text-sm text-on-surface"
+            >
+              <Icon name="link" size="xs" className="shrink-0 text-muted" />
+              <code className="truncate font-mono text-xs">/property/{initialSlug}</code>
+            </div>
+            <p className="text-xs text-muted">
+              La URL no cambia aunque edites el título. Generada al crear la propiedad.
+            </p>
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
