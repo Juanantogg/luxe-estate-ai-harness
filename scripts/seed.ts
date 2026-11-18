@@ -7,7 +7,7 @@
  * Uso:
  *   pnpm db:seed
  *
- * Requiere SUPABASE_SERVICE_ROLE_KEY en .env.
+ * Requiere SUPABASE_SERVICE_ROLE_KEY y SEED_PASSWORD en .env.
  */
 
 import { config as loadEnv } from 'dotenv';
@@ -18,21 +18,22 @@ loadEnv();
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SEED_PASSWORD = process.env.SEED_PASSWORD;
 // Flag opt-in: regenera las imágenes de cada property desde el plan por tipo
 // (pickImagesFor), corrigiendo heroes legacy del pool global. Sin el flag, el
 // reseed de imágenes sigue siendo idempotente por conteo (comportamiento default).
 const RESEED_IMAGES = process.argv.includes('--reseed-images');
 
-if (!SUPABASE_URL || !SERVICE_ROLE) {
-  console.error('❌ Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en .env');
+if (!SUPABASE_URL || !SERVICE_ROLE || !SEED_PASSWORD) {
+  console.error(
+    '❌ Faltan NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY o SEED_PASSWORD en .env',
+  );
   process.exit(1);
 }
 
 const supabase = createClient<Database>(SUPABASE_URL, SERVICE_ROLE, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
-
-const SEED_PASSWORD = 'LuxeEstateSeed2026!';
 
 type Role = Database['public']['Enums']['user_role'];
 
@@ -1787,7 +1788,7 @@ async function main() {
   await seedNotifications(userIdByEmail, propertyIdByTitle);
 
   console.log('\n✅ Seed completado.\n');
-  console.log(`Password de todos los users seed: ${SEED_PASSWORD}`);
+  console.log('Password de todos los users seed: el valor de SEED_PASSWORD en .env');
 }
 
 main().catch((err) => {
